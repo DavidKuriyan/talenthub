@@ -19,7 +19,8 @@ export default function CartSummary() {
             });
 
             if (!response.ok) {
-                throw new Error("Failed to create order");
+                const errorData = await response.json();
+                throw new Error(errorData.error || "Failed to create order");
             }
 
             const order = await response.json();
@@ -72,9 +73,9 @@ export default function CartSummary() {
                 alert(`Payment failed: ${response.error.description}`);
             });
             rzp.open();
-        } catch (error) {
+        } catch (error: any) {
             console.error("Checkout failed:", error);
-            alert("Checkout failed. Please try again.");
+            alert(`Checkout failed: ${error.message}`);
         } finally {
             setIsCheckoutLoading(false);
         }
