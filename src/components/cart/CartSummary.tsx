@@ -11,18 +11,70 @@ export default function CartSummary() {
         setIsCheckoutLoading(true);
         // @aiNote Razorpay integration will call our API route to create an order.
         try {
+            // Step 1: Create order via our API
             const response = await fetch("/api/checkout", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ items, total: totalPrice }),
             });
+
+            if (!response.ok) {
+                throw new Error("Failed to create order");
+            }
+
             const order = await response.json();
 
-            // Implement Razorpay checkout logic here (using the checkout route)
-            console.log("Order created:", order);
-            alert(`Checkout flow initiated for ₹${totalPrice / 100}. (Razorpay modal would open here)`);
+            // Step 2: Open Razorpay checkout modal
+            const options = {
+                key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || "",
+                amount: order.amount,
+                currency: order.currency,
+                name: "TalentHub Solutions",
+                description: "Placement Service Fee",
+                order_id: order.id,
+                handler: async function (response: any) {
+                    // Step 3: Verify payment on our backend
+                    try {
+                        const verifyRes = await fetch("/api/checkout/verify", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({
+                                orderId: response.razorpay_order_id,
+                                paymentId: response.razorpay_payment_id,
+                                signature: response.razorpay_signature,
+                                items,
+                            }),
+                        });
+
+                        if (verifyRes.ok) {
+                            alert("Payment successful! Order confirmed.");
+                            clearCart();
+                        } else {
+                            throw new Error("Payment verification failed");
+                        }
+                    } catch (err) {
+                        console.error("Verification error:", err);
+                        alert("Payment verification failed. Please contact support.");
+                    }
+                },
+                prefill: {
+                    name: "Customer",
+                    email: "customer@example.com",
+                },
+                theme: {
+                    color: "#18181b", // zinc-900
+                },
+            };
+
+            // @ts-ignore - Razorpay is loaded via script tag
+            const rzp = new window.Razorpay(options);
+            rzp.on("payment.failed", function (response: any) {
+                alert(`Payment failed: ${response.error.description}`);
+            });
+            rzp.open();
         } catch (error) {
             console.error("Checkout failed:", error);
+            alert("Checkout failed. Please try again.");
         } finally {
             setIsCheckoutLoading(false);
         }

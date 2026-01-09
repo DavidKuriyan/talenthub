@@ -1,8 +1,10 @@
-import { supabase } from "@/lib/supabase";
+import { createClient } from "@/lib/server";
 import AddToCartButton from "@/components/cart/AddToCartButton";
 import CartSummary from "@/components/cart/CartSummary";
 
 export default async function ProductsPage() {
+    const supabase = await createClient();
+
     // @aiNote In production, the tenant_id would be derived from the auth session/middleware header.
     // For demonstration, we fetch products and rely on the RLS policies in Supabase.
     const { data: products, error } = await supabase

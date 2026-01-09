@@ -35,13 +35,14 @@ export default function AuthForm({ mode }: AuthFormProps) {
                         data: {
                             // Default to TalentHub Solutions for the bootcamp
                             tenant_id: "talenthub",
+                            role: "subscriber"
                         },
                     },
                 });
                 if (signUpError) throw signUpError;
 
                 // Log registration event
-                await logAuthEvent("registration", { email });
+                await logAuthEvent("registration", { email, tenant_id: "talenthub", role: "subscriber" });
             } else {
                 const { error: signInError } = await supabase.auth.signInWithPassword({
                     email,

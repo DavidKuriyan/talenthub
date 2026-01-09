@@ -8,6 +8,7 @@ import {
     sendMessage as sendMessageUtil,
 } from "@/lib/realtime";
 import { createJitsiRoomConfig } from "@/lib/jitsi";
+import { uploadChatImage } from "@/lib/storage";
 
 type Message = Tables<"messages">;
 
@@ -35,6 +36,8 @@ export default function ChatRoom({
         null
     );
     const scrollRef = useRef<HTMLDivElement>(null);
+    const fileInputRef = useRef<HTMLInputElement>(null);
+    const [isUploading, setIsUploading] = useState(false);
 
     useEffect(() => {
         // 1. Fetch existing messages
@@ -95,6 +98,39 @@ export default function ChatRoom({
         }
     };
 
+    const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        // Validate file type
+        if (!file.type.startsWith("image/")) {
+            setError("Only images are supported");
+            return;
+        }
+
+        // Validate file size (max 5MB)
+        if (file.size > 5 * 1024 * 1024) {
+            setError("Image must be smaller than 5MB");
+            return;
+        }
+
+        setIsUploading(true);
+        setError(null);
+
+        try {
+            const { url } = await uploadChatImage(file, tenantId, roomId);
+            await sendMessageUtil(roomId, senderId, tenantId, `[Image] ${url}`);
+            if (fileInputRef.current) {
+                fileInputRef.current.value = "";
+            }
+        } catch (err) {
+            console.error("Error uploading file:", err);
+            setError("Failed to upload image");
+        } finally {
+            setIsUploading(false);
+        }
+    };
+
     return (
         <div className="flex flex-col h-[600px] w-full max-w-2xl mx-auto rounded-3xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 shadow-xl overflow-hidden">
             {/* Header */}
@@ -150,11 +186,20 @@ export default function ChatRoom({
                         >
                             <div
                                 className={`max-w-[80%] rounded-2xl px-4 py-2 text-sm ${msg.sender_id === senderId
-                                        ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900"
-                                        : "bg-zinc-100 text-zinc-900 dark:bg-zinc-800 dark:text-zinc-100"
+                                    ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900"
+                                    : "bg-zinc-100 text-zinc-900 dark:bg-zinc-800 dark:text-zinc-100"
                                     }`}
                             >
-                                {msg.content}
+                                {msg.content.startsWith("[Image]") ? (
+                                    <img
+                                        src={msg.content.replace("[Image] ", "")}
+                                        alt="Uploaded"
+                                        className="max-w-full rounded-lg"
+                                        loading="lazy"
+                                    />
+                                ) : (
+                                    msg.content
+                                )}
                                 <div className="text-xs opacity-70 mt-1">
                                     {new Date(msg.created_at).toLocaleTimeString()}
                                 </div>
@@ -166,6 +211,22 @@ export default function ChatRoom({
 
             {/* Input Area */}
             <form onSubmit={sendMessage} className="p-6 border-t border-zinc-100 dark:border-zinc-800 flex gap-4">
+                <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={handleFileUpload}
+                    className="hidden"
+                />
+                <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={isUploading}
+                    className="rounded-xl bg-zinc-200 dark:bg-zinc-800 px-4 py-3 text-sm font-bold text-zinc-900 dark:text-zinc-100 transition-colors hover:bg-zinc-300 dark:hover:bg-zinc-700 disabled:opacity-50"
+                    title="Upload image"
+                >
+                    {isUploading ? "📤" : "📎"}
+                </button>
                 <input
                     type="text"
                     value={newMessage}

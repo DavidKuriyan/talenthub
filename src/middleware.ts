@@ -70,9 +70,19 @@ export async function middleware(request: NextRequest) {
         return NextResponse.redirect(url)
     }
 
-    // Inject tenant context
+    // Inject tenant context and perform basic authorization
     if (session?.user) {
         const tenantId = session.user.app_metadata.tenant_id || 'talenthub'
+
+        // Basic path-based protection for /admin
+        if (url.pathname.startsWith('/admin')) {
+            const role = session.user.app_metadata.role
+            if (role !== 'admin') {
+                url.pathname = '/products'
+                return NextResponse.redirect(url)
+            }
+        }
+
         response.headers.set('x-tenant-id', tenantId)
     }
 
