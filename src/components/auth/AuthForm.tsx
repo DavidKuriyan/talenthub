@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { supabase } from "@/lib/supabase";
+import { logAuthEvent } from "@/lib/audit";
 import { useRouter } from "next/navigation";
 
 interface AuthFormProps {
@@ -38,17 +39,28 @@ export default function AuthForm({ mode }: AuthFormProps) {
                     },
                 });
                 if (signUpError) throw signUpError;
+
+                // Log registration event
+                await logAuthEvent("registration", { email });
             } else {
                 const { error: signInError } = await supabase.auth.signInWithPassword({
                     email,
                     password,
                 });
                 if (signInError) throw signInError;
+
+                // Log login event
+                await logAuthEvent("login", { email });
             }
             router.push("/products");
             router.refresh();
         } catch (err: any) {
             setError(err.message);
+
+            // Log auth failure
+            if (mode === "login") {
+                await logAuthEvent("auth_failure", { email, reason: err.message });
+            }
         } finally {
             setLoading(false);
         }
