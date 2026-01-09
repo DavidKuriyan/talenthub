@@ -1,8 +1,13 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
-import { supabase } from "@/lib/supabase";
 import { Tables } from "@/lib/types";
+import {
+    subscribeToMessages,
+    fetchMessageHistory,
+    sendMessage as sendMessageUtil,
+} from "@/lib/realtime";
+import { createJitsiRoomConfig } from "@/lib/jitsi";
 
 type Message = Tables<"messages">;
 
@@ -10,49 +15,65 @@ interface ChatRoomProps {
     roomId: string;
     senderId: string;
     tenantId: string;
+    userName?: string;
+    displayName?: string;
 }
 
-export default function ChatRoom({ roomId, senderId, tenantId }: ChatRoomProps) {
+export default function ChatRoom({
+    roomId,
+    senderId,
+    tenantId,
+    userName = "chat",
+    displayName,
+}: ChatRoomProps) {
     const [messages, setMessages] = useState<Message[]>([]);
     const [newMessage, setNewMessage] = useState("");
     const [isVideoOpen, setIsVideoOpen] = useState(false);
+    const [isLoading, setIsLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+    const [jitsiConfig, setJitsiConfig] = useState<ReturnType<typeof createJitsiRoomConfig> | null>(
+        null
+    );
     const scrollRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
         // 1. Fetch existing messages
-        const fetchMessages = async () => {
-            const { data, error } = await supabase
-                .from("messages")
-                .select("*")
-                .eq("room_id", roomId)
-                .order("created_at", { ascending: true });
-
-            if (data) setMessages(data);
+        const loadMessages = async () => {
+            try {
+                setIsLoading(true);
+                const history = await fetchMessageHistory(roomId, 50);
+                setMessages(history);
+                setError(null);
+            } catch (err) {
+                console.error("Error loading messages:", err);
+                setError("Failed to load messages");
+            } finally {
+                setIsLoading(false);
+            }
         };
 
-        fetchMessages();
+        // 2. Generate Jitsi config
+        const config = createJitsiRoomConfig(senderId, tenantId, userName, displayName);
+        setJitsiConfig(config);
 
-        // 2. Subscribe to new messages
-        const channel = supabase
-            .channel(`room:${roomId}`)
-            .on(
-                "postgres_changes",
-                {
-                    event: "INSERT",
-                    schema: "public",
-                    table: "messages",
-                    filter: `room_id=eq.${roomId}`,
-                },
-                (payload) => {
-                    setMessages((prev) => [...prev, payload.new as Message]);
-                }
-            )
-            .subscribe();
+        loadMessages();
+
+        // 3. Subscribe to new messages in real-time
+        const unsubscribe = subscribeToMessages(
+            roomId,
+            (newMsg) => {
+                setMessages((prev) => [...prev, newMsg]);
+            },
+            (err) => {
+                console.error("Realtime subscription error:", err);
+                setError("Lost real-time connection");
+            }
+        );
 
         return () => {
-            supabase.removeChannel(channel);
+            unsubscribe();
         };
-    }, [roomId]);
+    }, [roomId, senderId, tenantId, userName, displayName]);
 
     useEffect(() => {
         if (scrollRef.current) {
@@ -64,14 +85,14 @@ export default function ChatRoom({ roomId, senderId, tenantId }: ChatRoomProps) 
         e.preventDefault();
         if (!newMessage.trim()) return;
 
-        const { error } = await supabase.from("messages").insert({
-            room_id: roomId,
-            sender_id: senderId,
-            tenant_id: tenantId,
-            content: newMessage,
-        });
-
-        if (!error) setNewMessage("");
+        try {
+            await sendMessageUtil(roomId, senderId, tenantId, newMessage);
+            setNewMessage("");
+            setError(null);
+        } catch (err) {
+            console.error("Error sending message:", err);
+            setError("Failed to send message");
+        }
     };
 
     return (
@@ -91,12 +112,14 @@ export default function ChatRoom({ roomId, senderId, tenantId }: ChatRoomProps) 
             </div>
 
             {/* Video Area (Jitsi) */}
-            {isVideoOpen && (
+            {isVideoOpen && jitsiConfig && (
                 <div className="h-64 bg-black border-b border-zinc-800">
                     <iframe
-                        src={`https://meet.jit.si/${roomId}`}
+                        key={jitsiConfig.roomId}
+                        src={jitsiConfig.url}
                         allow="camera; microphone; fullscreen; display-capture"
                         className="w-full h-full"
+                        title="Jitsi Video Conference"
                     />
                 </div>
             )}
@@ -106,21 +129,39 @@ export default function ChatRoom({ roomId, senderId, tenantId }: ChatRoomProps) 
                 ref={scrollRef}
                 className="flex-1 overflow-y-auto p-6 space-y-4 custom-scrollbar"
             >
-                {messages.map((msg) => (
-                    <div
-                        key={msg.id}
-                        className={`flex ${msg.sender_id === senderId ? "justify-end" : "justify-start"}`}
-                    >
-                        <div
-                            className={`max-w-[80%] rounded-2xl px-4 py-2 text-sm ${msg.sender_id === senderId
-                                    ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900"
-                                    : "bg-zinc-100 text-zinc-900 dark:bg-zinc-800 dark:text-zinc-100"
-                                }`}
-                        >
-                            {msg.content}
-                        </div>
+                {error && (
+                    <div className="rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 p-3 text-sm text-red-700 dark:text-red-300">
+                        {error}
                     </div>
-                ))}
+                )}
+                {isLoading ? (
+                    <div className="flex items-center justify-center h-32">
+                        <p className="text-zinc-500">Loading messages...</p>
+                    </div>
+                ) : messages.length === 0 ? (
+                    <div className="flex items-center justify-center h-32">
+                        <p className="text-zinc-500">No messages yet. Start the conversation!</p>
+                    </div>
+                ) : (
+                    messages.map((msg) => (
+                        <div
+                            key={msg.id}
+                            className={`flex ${msg.sender_id === senderId ? "justify-end" : "justify-start"}`}
+                        >
+                            <div
+                                className={`max-w-[80%] rounded-2xl px-4 py-2 text-sm ${msg.sender_id === senderId
+                                        ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900"
+                                        : "bg-zinc-100 text-zinc-900 dark:bg-zinc-800 dark:text-zinc-100"
+                                    }`}
+                            >
+                                {msg.content}
+                                <div className="text-xs opacity-70 mt-1">
+                                    {new Date(msg.created_at).toLocaleTimeString()}
+                                </div>
+                            </div>
+                        </div>
+                    ))
+                )}
             </div>
 
             {/* Input Area */}
