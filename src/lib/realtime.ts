@@ -1,30 +1,24 @@
-import { supabase } from "./supabase";
-import { Tables } from "./types";
+import { supabase, Tables } from "./supabase";
 
 type Message = Tables<"messages">;
 
 /**
- * Subscribe to real-time message updates for a specific chat room
- * Uses Supabase Realtime with PostgreSQL Changes
+ * Subscribe to real-time message updates for a specific match (chat room)
  */
 export function subscribeToMessages(
-    roomId: string,
+    matchId: string,
     onNewMessage: (message: Message) => void,
     onError?: (error: Error) => void
 ) {
     const channel = supabase
-        .channel(`room:${roomId}`, {
-            config: {
-                broadcast: { self: true },
-            },
-        })
+        .channel(`match:${matchId}`)
         .on(
             "postgres_changes",
             {
                 event: "INSERT",
                 schema: "public",
                 table: "messages",
-                filter: `room_id=eq.${roomId}`,
+                filter: `match_id=eq.${matchId}`,
             },
             (payload) => {
                 if (payload.new) {
@@ -37,7 +31,7 @@ export function subscribeToMessages(
             if (onError) onError(new Error(error.message));
         })
         .subscribe((status) => {
-            console.log(`Subscription to room:${roomId} status:`, status);
+            console.log(`Subscription to match:${matchId} status:`, status);
         });
 
     // Return unsubscribe function
@@ -47,89 +41,17 @@ export function subscribeToMessages(
 }
 
 /**
- * Subscribe to real-time updates for all messages in a tenant
- * Useful for admin dashboards
- */
-export function subscribeToTenantMessages(
-    tenantId: string,
-    onNewMessage: (message: Message) => void,
-    onError?: (error: Error) => void
-) {
-    const channel = supabase
-        .channel(`tenant:${tenantId}:messages`)
-        .on(
-            "postgres_changes",
-            {
-                event: "INSERT",
-                schema: "public",
-                table: "messages",
-                filter: `tenant_id=eq.${tenantId}`,
-            },
-            (payload) => {
-                if (payload.new) {
-                    onNewMessage(payload.new as Message);
-                }
-            }
-        )
-        .on("error", (error) => {
-            console.error("Tenant realtime subscription error:", error);
-            if (onError) onError(new Error(error.message));
-        })
-        .subscribe();
-
-    return async () => {
-        await supabase.removeChannel(channel);
-    };
-}
-
-/**
- * Subscribe to message updates (UPDATE events)
- * Useful for tracking edited messages or status changes
- */
-export function subscribeToMessageUpdates(
-    roomId: string,
-    onMessageUpdate: (message: Message) => void,
-    onError?: (error: Error) => void
-) {
-    const channel = supabase
-        .channel(`room:${roomId}:updates`)
-        .on(
-            "postgres_changes",
-            {
-                event: "UPDATE",
-                schema: "public",
-                table: "messages",
-                filter: `room_id=eq.${roomId}`,
-            },
-            (payload) => {
-                if (payload.new) {
-                    onMessageUpdate(payload.new as Message);
-                }
-            }
-        )
-        .on("error", (error) => {
-            console.error("Message updates subscription error:", error);
-            if (onError) onError(new Error(error.message));
-        })
-        .subscribe();
-
-    return async () => {
-        await supabase.removeChannel(channel);
-    };
-}
-
-/**
- * Fetch message history for a room with pagination
+ * Fetch message history for a match with pagination
  */
 export async function fetchMessageHistory(
-    roomId: string,
+    matchId: string,
     limit: number = 50,
     offset: number = 0
 ) {
     const { data, error } = await supabase
         .from("messages")
         .select("*")
-        .eq("room_id", roomId)
+        .eq("match_id", matchId)
         .order("created_at", { ascending: false })
         .range(offset, offset + limit - 1);
 
@@ -145,10 +67,10 @@ export async function fetchMessageHistory(
  * Send a message with error handling
  */
 export async function sendMessage(
-    roomId: string,
+    matchId: string,
     senderId: string,
-    tenantId: string,
-    content: string
+    content: string,
+    isSystemMessage: boolean = false
 ) {
     if (!content.trim()) {
         throw new Error("Message content cannot be empty");
@@ -157,10 +79,10 @@ export async function sendMessage(
     const { data, error } = await supabase
         .from("messages")
         .insert({
-            room_id: roomId,
+            match_id: matchId,
             sender_id: senderId,
-            tenant_id: tenantId,
             content: content.trim(),
+            is_system_message: isSystemMessage
         })
         .select()
         .single();

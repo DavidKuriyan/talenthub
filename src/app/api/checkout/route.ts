@@ -23,17 +23,19 @@ function log(message: string) {
     }
 }
 
-const razorpay = new Razorpay({
-    key_id: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || process.env.RAZORPAY_KEY_ID || "",
-    key_secret: process.env.RAZORPAY_KEY_SECRET || "",
-});
+// Razorpay instance will be initialized inside POST to ensure fresh env vars
+let razorpayInstance: Razorpay | null = null;
 
 export async function POST(req: Request) {
     log("💳 Checkout API called");
     try {
         // 0. Initialize keys from env (handle next_public prefix if mixed up)
-        const key_id = process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || process.env.RAZORPAY_KEY_ID;
-        const key_secret = process.env.RAZORPAY_KEY_SECRET;
+        // 0. Initialize keys from env (handle next_public prefix if mixed up) with robust trimming
+        const rawKeyId = process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || process.env.RAZORPAY_KEY_ID || "";
+        const rawKeySecret = process.env.RAZORPAY_KEY_SECRET || "";
+
+        const key_id = rawKeyId.trim();
+        const key_secret = rawKeySecret.trim();
 
         // 1. Check Environment Variables
         if (!key_id || !key_secret) {
@@ -107,7 +109,15 @@ export async function POST(req: Request) {
         // Create Razorpay order
         log("🔄 Creating Razorpay Order...");
         try {
-            const razorpayOrder = await razorpay.orders.create({
+            // Lazy init with cleaned keys
+            if (!razorpayInstance) {
+                razorpayInstance = new Razorpay({
+                    key_id: key_id,
+                    key_secret: key_secret,
+                });
+            }
+
+            const razorpayOrder = await razorpayInstance.orders.create({
                 amount: total, // in paise
                 currency: "INR",
                 receipt: `receipt_${Date.now()}`,
