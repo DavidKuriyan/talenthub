@@ -18,6 +18,7 @@ export const metadata: Metadata = {
 };
 
 import { CartProvider } from "@/context/CartContext";
+import ThemeToggle from "@/components/ui/ThemeToggle";
 
 export default function RootLayout({
   children,
@@ -25,16 +26,28 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <head>
         <script src="https://checkout.razorpay.com/v1/checkout.js" async></script>
       </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        suppressHydrationWarning
       >
-        <CartProvider>
-          {children}
-        </CartProvider>
+        <div className="min-h-screen bg-white dark:bg-zinc-950 text-zinc-900 dark:text-zinc-50 transition-colors">
+          {/* Navigation Header */}
+          <header className="sticky top-0 z-50 border-b border-zinc-200 dark:border-zinc-800 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-sm">
+            <nav className="container mx-auto px-6 py-4 flex items-center justify-between">
+              <h1 className="text-xl font-bold">TalentHub</h1>
+              <ThemeToggle />
+            </nav>
+          </header>
+
+          {/* Main Content */}
+          <CartProvider>
+            {children}
+          </CartProvider>
+        </div>
       </body>
     </html>
   );

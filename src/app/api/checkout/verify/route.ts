@@ -47,25 +47,58 @@ export async function POST(req: Request) {
             0
         );
 
-        // Step 4: Create order record in database
-        const { data: order, error: orderError } = await supabase
+        // Step 4: Create or update order record in database
+        const { data: existingOrder } = await supabase
             .from("orders")
-            .insert({
-                tenant_id: tenantId,
-                user_id: userId,
-                total,
-                status: "paid",
-                razorpay_order_id: orderId,
-            })
-            .select()
+            .select("*")
+            .eq("razorpay_order_id", orderId)
             .single();
 
-        if (orderError) {
-            console.error("Failed to create order:", orderError);
-            return NextResponse.json(
-                { error: "Failed to save order" },
-                { status: 500 }
-            );
+        let order;
+        if (existingOrder) {
+            // Update existing order to 'paid' status
+            const { data: updatedOrder, error: updateError } = await supabase
+                .from("orders")
+                .update({
+                    status: "paid",
+                    razorpay_payment_id: paymentId,
+                    updated_at: new Date().toISOString(),
+                })
+                .eq("razorpay_order_id", orderId)
+                .select()
+                .single();
+
+            if (updateError) {
+                console.error("Failed to update order:", updateError);
+                return NextResponse.json(
+                    { error: "Failed to update order" },
+                    { status: 500 }
+                );
+            }
+            order = updatedOrder;
+        } else {
+            // Create new order if doesn't exist (fallback)
+            const { data: newOrder, error: orderError } = await supabase
+                .from("orders")
+                .insert({
+                    tenant_id: tenantId,
+                    user_id: userId,
+                    total,
+                    status: "paid",
+                    razorpay_order_id: orderId,
+                    razorpay_payment_id: paymentId,
+                })
+                .select()
+                .single();
+
+            if (orderError) {
+                console.error("Failed to create order:", orderError);
+                return NextResponse.json(
+                    { error: "Failed to save order" },
+                    { status: 500 }
+                );
+            }
+            order = newOrder;
         }
 
         // Step 5: Log payment event for audit trail

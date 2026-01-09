@@ -25,6 +25,7 @@ export interface SuspiciousActivity {
 
 /**
  * Log a sensitive operation
+ * @aiNote This uses Supabase RPC which requires database function setup
  */
 export async function logSensitiveOperation(
     action: string,
@@ -39,13 +40,16 @@ export async function logSensitiveOperation(
         });
 
         if (error) {
-            console.error("Error logging operation:", error);
+            // Don't log error if function doesn't exist (development mode)
+            if (error.code !== 'PGRST202' && error.code !== '42883') {
+                console.warn("Audit logging unavailable:", error.message);
+            }
             return null;
         }
 
         return data;
     } catch (err) {
-        console.error("Error in logSensitiveOperation:", err);
+        // Silently fail in development if audit logging isn't set up
         return null;
     }
 }

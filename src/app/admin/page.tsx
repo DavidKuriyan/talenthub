@@ -1,3 +1,17 @@
+/**
+ * @feature ADMIN_DASHBOARD
+ * Admin dashboard for tenant management and oversight
+ * 
+ * @aiNote This component displays tenant-scoped data. 
+ * CRITICAL: All queries MUST filter by tenant_id to prevent data leakage.
+ * Changing tenant selection logic affects RLS policies.
+ * 
+ * @businessRule Only users with 'admin' role can access this page.
+ * Middleware in src/middleware.ts enforces this rule.
+ * 
+ * @dpdp Displays order totals and user info - PII requiring access logging.
+ */
+
 "use client";
 
 import { useEffect, useState } from "react";

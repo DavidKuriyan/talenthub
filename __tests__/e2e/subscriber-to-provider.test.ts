@@ -10,6 +10,7 @@
  * 6. Video conference via Jitsi
  */
 
+import React from "react";
 import { render, screen, fireEvent, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import RegisterPage from "@/app/register/page";
@@ -271,7 +272,7 @@ describe("E2E: Subscriber-to-Provider Journey", () => {
             const user = userEvent.setup();
             const { container } = render(
                 <CartProvider>
-                    <CartSummary />
+                <CartSummary />
                 </CartProvider>
             );
 
@@ -283,7 +284,7 @@ describe("E2E: Subscriber-to-Provider Journey", () => {
         it("should display total price in cart", async () => {
             render(
                 <CartProvider>
-                    <CartSummary />
+                <CartSummary />
                 </CartProvider>
             );
 
@@ -301,7 +302,7 @@ describe("E2E: Subscriber-to-Provider Journey", () => {
 
             const { container } = render(
                 <CartProvider>
-                    <CartSummary />
+                <CartSummary />
                 </CartProvider>
             );
 
@@ -315,7 +316,7 @@ describe("E2E: Subscriber-to-Provider Journey", () => {
         it("should clear cart after purchase", async () => {
             render(
                 <CartProvider>
-                    <CartSummary />
+                <CartSummary />
                 </CartProvider>
             );
 
@@ -435,7 +436,7 @@ describe("E2E: Subscriber-to-Provider Journey", () => {
         });
 
         it("should display existing messages in chat room", async () => {
-            render(<ChatRoom {...mockChatProps} />);
+            render(<ChatRoom { ...mockChatProps } />);
 
             await waitFor(() => {
                 expect(screen.getByText(/loading messages/i)).toBeInTheDocument();
@@ -465,7 +466,7 @@ describe("E2E: Subscriber-to-Provider Journey", () => {
                 error: null,
             });
 
-            render(<ChatRoom {...mockChatProps} />);
+            render(<ChatRoom { ...mockChatProps } />);
 
             await waitFor(() => {
                 expect(screen.getByPlaceholderText("Type your message...")).toBeInTheDocument();
@@ -508,7 +509,7 @@ describe("E2E: Subscriber-to-Provider Journey", () => {
             (supabase.from as jest.Mock).mockReturnValue(mockQuery);
             mockQuery.order.mockResolvedValue({ data: [], error: null });
 
-            render(<ChatRoom {...mockChatProps} />);
+            render(<ChatRoom { ...mockChatProps } />);
 
             await waitFor(() => {
                 expect(mockChannel.on).toHaveBeenCalled();
@@ -533,7 +534,7 @@ describe("E2E: Subscriber-to-Provider Journey", () => {
         });
 
         it("should display message timestamps", async () => {
-            render(<ChatRoom {...mockChatProps} />);
+            render(<ChatRoom { ...mockChatProps } />);
 
             await waitFor(() => {
                 const timeElements = screen.getAllByText(/[0-9]{1,2}:[0-9]{2}:[0-9]{2}/);
@@ -553,7 +554,7 @@ describe("E2E: Subscriber-to-Provider Journey", () => {
                 error: { message: "Failed to load messages" },
             });
 
-            render(<ChatRoom {...mockChatProps} />);
+            render(<ChatRoom { ...mockChatProps } />);
 
             await waitFor(() => {
                 expect(screen.getByText(/failed to load messages/i)).toBeInTheDocument();
@@ -562,7 +563,7 @@ describe("E2E: Subscriber-to-Provider Journey", () => {
 
         it("should handle chat input validation", async () => {
             const user = userEvent.setup();
-            render(<ChatRoom {...mockChatProps} />);
+            render(<ChatRoom { ...mockChatProps } />);
 
             const messageInput = screen.getByPlaceholderText("Type your message...");
 
@@ -602,7 +603,7 @@ describe("E2E: Subscriber-to-Provider Journey", () => {
 
         it("should open Jitsi video conference when clicking video call button", async () => {
             const user = userEvent.setup();
-            render(<ChatRoom {...mockChatProps} />);
+            render(<ChatRoom { ...mockChatProps } />);
 
             const videoButton = await screen.findByRole("button", { name: /join video call/i });
             await user.click(videoButton);
@@ -614,7 +615,7 @@ describe("E2E: Subscriber-to-Provider Journey", () => {
         });
 
         it("should use secure Jitsi room ID", async () => {
-            render(<ChatRoom {...mockChatProps} />);
+            render(<ChatRoom { ...mockChatProps } userName = "johndoe" displayName = "John Doe" />);
 
             const user = userEvent.setup();
             const videoButton = await screen.findByRole("button", { name: /join video call/i });
@@ -629,7 +630,7 @@ describe("E2E: Subscriber-to-Provider Journey", () => {
 
         it("should allow closing video conference", async () => {
             const user = userEvent.setup();
-            render(<ChatRoom {...mockChatProps} />);
+            render(<ChatRoom { ...mockChatProps } />);
 
             const videoButton = await screen.findByRole("button", { name: /join video call/i });
             await user.click(videoButton);
@@ -660,7 +661,7 @@ describe("E2E: Subscriber-to-Provider Journey", () => {
                 error: null,
             });
 
-            render(<ChatRoom {...mockChatProps} />);
+            render(<ChatRoom { ...mockChatProps } />);
 
             const videoButton = await screen.findByRole("button", { name: /join video call/i });
             await user.click(videoButton);
@@ -714,8 +715,8 @@ describe("E2E: Subscriber-to-Provider Journey", () => {
             render(
                 <ChatRoom
                     roomId="unauthorized-room"
-                    senderId="user-123"
-                    tenantId="talenthub"
+                    senderId = "user-123"
+                    tenantId = "talenthub"
                 />
             );
 
@@ -736,8 +737,8 @@ describe("E2E: Subscriber-to-Provider Journey", () => {
             render(
                 <ChatRoom
                     roomId="room-123"
-                    senderId="user-123"
-                    tenantId="talenthub"
+                    senderId = "user-123"
+                    tenantId = "talenthub"
                 />
             );
 

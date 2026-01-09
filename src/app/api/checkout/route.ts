@@ -1,6 +1,12 @@
 import { NextResponse } from "next/server";
 import Razorpay from "razorpay";
-import { supabase } from "@/lib/supabase";
+import { createClient } from "@/lib/server";
+
+/**
+ * @feature PAYMENTS
+ * @aiNote Creates Razorpay order and persists to database with 'pending' status
+ * @dpdp Stores order amount and user_id for payment tracking
+ */
 
 const razorpay = new Razorpay({
     key_id: process.env.RAZORPAY_KEY_ID!,
@@ -11,18 +17,65 @@ export async function POST(req: Request) {
     try {
         const { items, total } = await req.json();
 
-        // @aiNote In production, we would verify the tenant_id and user_id from the session.
-        // Here we create the order using the Razorpay SDK.
-        const order = await razorpay.orders.create({
+        // Get authenticated user
+        const supabase = await createClient();
+        const { data: { session } } = await supabase.auth.getSession();
+
+        if (!session?.user) {
+            return NextResponse.json(
+                { error: "Unauthorized" },
+                { status: 401 }
+            );
+        }
+
+        const userId = session.user.id;
+        const tenantId = session.user.app_metadata.tenant_id || "talenthub";
+
+        // Validate total matches items (prevent tampering)
+        const calculatedTotal = items.reduce(
+            (sum: number, item: any) => sum + (item.price * item.quantity),
+            0
+        );
+
+        if (calculatedTotal !== total) {
+            return NextResponse.json(
+                { error: "Total mismatch" },
+                { status: 400 }
+            );
+        }
+
+        // Create Razorpay order
+        const razorpayOrder = await razorpay.orders.create({
             amount: total, // in paise
             currency: "INR",
             receipt: `receipt_${Date.now()}`,
         });
 
-        // Log the order creation in the audit_logs (optional but recommended)
-        // await supabase.from('audit_logs').insert({ ... })
+        // Save order to database with 'pending' status
+        const { data: order, error: orderError } = await supabase
+            .from("orders")
+            .insert({
+                tenant_id: tenantId,
+                user_id: userId,
+                total,
+                status: "pending",
+                razorpay_order_id: razorpayOrder.id,
+            })
+            .select()
+            .single();
 
-        return NextResponse.json(order);
+        if (orderError) {
+            console.error("Failed to create order:", orderError);
+            return NextResponse.json(
+                { error: "Failed to save order" },
+                { status: 500 }
+            );
+        }
+
+        return NextResponse.json({
+            ...razorpayOrder,
+            orderId: order.id,
+        });
     } catch (error: any) {
         console.error("Razorpay Order Error:", error);
         return NextResponse.json({ error: error.message }, { status: 500 });

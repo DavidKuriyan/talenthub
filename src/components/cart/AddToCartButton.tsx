@@ -1,3 +1,11 @@
+/**
+ * @feature CART_MANAGEMENT
+ * Add to cart button component for products
+ * 
+ * @businessRule Cart is stored in browser localStorage for performance.
+ * Server-side validation occurs during checkout to prevent price tampering.
+ */
+
 "use client";
 
 import { useCart } from "@/context/CartContext";

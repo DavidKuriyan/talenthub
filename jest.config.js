@@ -12,11 +12,7 @@ const config = {
   },
   transform: {
     '^.+\\.tsx?$': ['ts-jest', {
-      tsconfig: {
-        jsx: 'react',
-        esModuleInterop: true,
-        allowSyntheticDefaultImports: true,
-      }
+      tsconfig: './tsconfig.jest.json'
     }]
   },
   setupFilesAfterEnv: ['<rootDir>/jest.setup.js'],
