@@ -6,6 +6,9 @@ export type Json =
     | { [key: string]: Json | undefined }
     | Json[]
 
+// Helper type to extract table Row types
+export type Tables<T extends keyof Database['public']['Tables']> = Database['public']['Tables'][T]['Row'];
+
 export interface Database {
     public: {
         Tables: {

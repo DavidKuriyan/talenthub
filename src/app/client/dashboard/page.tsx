@@ -5,6 +5,7 @@ import Link from "next/link";
 /**
  * @feature CLIENT_DASHBOARD
  * @aiNote Displays client's active job requirements and allows posting new ones.
+ * @aiNote Fixed: Now checks both user_metadata and app_metadata for role/tenant.
  * @dpdp Handles client-specific data visible only to them (RLS).
  */
 export default async function ClientDashboard() {
@@ -15,15 +16,17 @@ export default async function ClientDashboard() {
         redirect("/login");
     }
 
-    const tenantId = session.user.app_metadata.tenant_id;
-    const role = session.user.app_metadata.role;
+    // Check both metadata locations (user_metadata is set on signup, app_metadata by admin)
+    const tenantId = session.user.user_metadata?.tenant_id || session.user.app_metadata?.tenant_id;
+    const role = session.user.user_metadata?.role || session.user.app_metadata?.role;
 
-    // Verify Role
-    if (role !== "subscriber" && role !== "admin") {
+    // Verify Role - allow subscriber, admin, or if no role set (new user)
+    if (role && role !== "subscriber" && role !== "admin") {
         return (
             <div className="p-8 text-center">
                 <h1 className="text-2xl font-bold text-red-500">Access Denied</h1>
                 <p className="mt-2 text-zinc-600">This dashboard is for Clients (Subscribers) only.</p>
+                <p className="mt-1 text-zinc-400 text-sm">Your role: {role || "not set"}</p>
                 <Link href="/products" className="mt-4 inline-block text-blue-600 hover:underline">
                     Go to Marketplace
                 </Link>
@@ -59,12 +62,42 @@ export default async function ClientDashboard() {
         console.error("Error fetching matches:", matchesError);
     }
 
+    // Fetch Client Requirements (BUG FIX: was previously undefined)
+    const { data: requirements, error: reqError } = await supabase
+        .from("requirements")
+        .select("*")
+        .eq("client_id", session.user.id)
+        .order("created_at", { ascending: false });
+
+    if (reqError) {
+        console.error("Error fetching requirements:", reqError);
+    }
+
+    // Type assertions for query results
+    type RequirementRow = {
+        id: string;
+        title: string;
+        skills: string[] | null;
+        budget: number | null;
+        status: string;
+        created_at: string;
+    };
+    const typedRequirements = (requirements || []) as RequirementRow[];
+
     // Type casting needed for joined data
-    const typedMatches = (matches || []).map(m => ({
+    type MatchWithJoins = {
+        id: string;
+        score: number;
+        status: string;
+        created_at: string;
+        requirements: { id: string; title: string; client_id: string };
+        profiles: { id: string; skills: string[]; experience_years: number; user_id: string };
+    };
+    const typedMatches = ((matches || []) as any[]).map((m: any) => ({
         ...m,
-        requirements: m.requirements as any,
-        profiles: m.profiles as any
-    }));
+        requirements: m.requirements,
+        profiles: m.profiles
+    })) as MatchWithJoins[];
 
     return (
         <div className="min-h-screen bg-zinc-50 dark:bg-black p-8">
@@ -120,9 +153,9 @@ export default async function ClientDashboard() {
                 <div className="border-t pt-8">
                     <h2 className="text-xl font-semibold text-zinc-900 mb-4">Your Requirements</h2>
                     {/* Requirements Grid */}
-                    {requirements && requirements.length > 0 ? (
+                    {typedRequirements && typedRequirements.length > 0 ? (
                         <div className="grid gap-4">
-                            {requirements.map((req) => (
+                            {typedRequirements.map((req) => (
                                 <div key={req.id} className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 p-6 rounded-xl hover:shadow-md transition-shadow">
                                     <div className="flex justify-between items-start">
                                         <div>

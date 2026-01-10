@@ -19,6 +19,7 @@ export const metadata: Metadata = {
 
 import { CartProvider } from "@/context/CartContext";
 import ThemeToggle from "@/components/ui/ThemeToggle";
+import MobileBottomNav from "@/components/ui/MobileBottomNav";
 
 export default function RootLayout({
   children,
@@ -43,10 +44,15 @@ export default function RootLayout({
             </nav>
           </header>
 
-          {/* Main Content */}
+          {/* Main Content with bottom padding for mobile nav */}
           <CartProvider>
-            {children}
+            <main className="pb-20 md:pb-0">
+              {children}
+            </main>
           </CartProvider>
+
+          {/* Mobile Bottom Navigation */}
+          <MobileBottomNav />
         </div>
       </body>
     </html>

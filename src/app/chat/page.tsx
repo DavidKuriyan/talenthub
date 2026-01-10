@@ -4,32 +4,74 @@ import ChatRoom from "@/components/chat/Room";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 
+/**
+ * @feature CHAT_PAGE
+ * @aiNote Fixed: Uses authenticated session directly instead of querying users table.
+ * Previous version caused 406 error due to RLS blocking users table query.
+ */
 export default function ChatPage() {
-    // @aiNote In a real app, these values would come from the auth context.
-    // For the bootcamp, we use hardcoded IDs for demonstration.
     const [demoSession, setDemoSession] = useState<{
         roomId: string;
         senderId: string;
         tenantId: string;
     } | null>(null);
+    const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
-        const setupDemoData = async () => {
-            // Fetch the first tenant and user to simulate a session
-            const { data: tenant } = await supabase.from("tenants").select("id").limit(1).single();
-            const { data: user } = await supabase.from("users").select("id").limit(1).single();
+        const setupSession = async () => {
+            try {
+                // Get authenticated user session
+                const { data: { session }, error: authError } = await supabase.auth.getSession();
 
-            if (tenant && user) {
+                if (authError || !session?.user) {
+                    setError("Please login to access chat");
+                    return;
+                }
+
+                // Get user's tenant from metadata or fetch first available tenant
+                let tenantId = session.user.user_metadata?.tenant_id;
+
+                if (!tenantId) {
+                    // Fallback: Get first active tenant for demo
+                    const { data: tenantData, error: tenantError } = await supabase
+                        .from("tenants")
+                        .select("id")
+                        .eq("is_active", true)
+                        .limit(1)
+                        .single();
+
+                    if (tenantError || !tenantData) {
+                        setError("No active tenant found. Please contact admin.");
+                        return;
+                    }
+                    tenantId = (tenantData as { id: string }).id;
+                }
+
                 setDemoSession({
-                    roomId: `${tenant.id}:demo_room`,
-                    senderId: user.id,
-                    tenantId: tenant.id,
+                    roomId: `${tenantId}:chat_${session.user.id}`,
+                    senderId: session.user.id,
+                    tenantId: tenantId,
                 });
+            } catch (err: any) {
+                setError(err.message || "Failed to initialize chat");
             }
         };
 
-        setupDemoData();
+        setupSession();
     }, []);
+
+    if (error) {
+        return (
+            <div className="flex h-screen items-center justify-center bg-zinc-50 dark:bg-black">
+                <div className="text-center p-8">
+                    <p className="text-red-500 font-medium">{error}</p>
+                    <a href="/login" className="mt-4 inline-block text-blue-600 hover:underline">
+                        Go to Login
+                    </a>
+                </div>
+            </div>
+        );
+    }
 
     if (!demoSession) {
         return (
@@ -55,9 +97,9 @@ export default function ChatPage() {
             />
 
             <div className="mt-8 p-4 rounded-2xl bg-zinc-100 dark:bg-zinc-900/50 border border-zinc-200 dark:border-zinc-800 text-xs text-zinc-500 max-w-lg text-center">
-                @aiNote This demo uses the first available tenant/user from the database.
-                In production, RLS policies enforce that users only see messages from their own tenant.
+                @aiNote This uses authenticated session for chat. RLS policies enforce tenant isolation.
             </div>
         </div>
     );
 }
+

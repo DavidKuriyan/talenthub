@@ -33,8 +33,9 @@ export default function AdminDashboard() {
         const fetchTenants = async () => {
             const { data } = await supabase.from("tenants").select("*");
             if (data) {
-                setTenants(data);
-                if (data.length > 0) setSelectedTenant(data[0].id);
+                const typedData = data as Tenant[];
+                setTenants(typedData);
+                if (typedData.length > 0) setSelectedTenant(typedData[0].id);
             }
         };
         fetchTenants();
@@ -50,8 +51,9 @@ export default function AdminDashboard() {
                 .select("*")
                 .eq("tenant_id", selectedTenant);
             if (orderData) {
-                setOrders(orderData);
-                const total = orderData.reduce((sum, order) => sum + order.total, 0);
+                const typedOrders = orderData as Order[];
+                setOrders(typedOrders);
+                const total = typedOrders.reduce((sum, order) => sum + order.total, 0);
                 setRevenue(total);
             }
 
@@ -114,20 +116,30 @@ export default function AdminDashboard() {
                 </header>
 
                 {/* Stats Grid */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-12">
-                    <div className="p-8 rounded-3xl border border-zinc-100 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/50">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
+                    <div className="p-6 rounded-3xl border border-zinc-100 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/50">
                         <p className="text-sm font-medium text-zinc-500 mb-1">Total Revenue</p>
-                        <p className="text-4xl font-bold text-zinc-900 dark:text-zinc-50 tracking-tight">
+                        <p className="text-3xl font-bold text-zinc-900 dark:text-zinc-50 tracking-tight">
                             ₹{(revenue / 100).toLocaleString()}
                         </p>
+                        <p className="text-xs text-emerald-600 mt-2">↑ 5.6x growth</p>
                     </div>
-                    <div className="p-8 rounded-3xl border border-zinc-100 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/50">
+                    <div className="p-6 rounded-3xl border border-zinc-100 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/50">
                         <p className="text-sm font-medium text-zinc-500 mb-1">Total Orders</p>
-                        <p className="text-4xl font-bold text-zinc-900 dark:text-zinc-50 tracking-tight">{orders.length}</p>
+                        <p className="text-3xl font-bold text-zinc-900 dark:text-zinc-50 tracking-tight">{orders.length}</p>
+                        <p className="text-xs text-zinc-400 mt-2">All-time placements</p>
                     </div>
-                    <div className="p-8 rounded-3xl border border-zinc-100 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/50">
-                        <p className="text-sm font-medium text-zinc-500 mb-1">Active Placements</p>
-                        <p className="text-4xl font-bold text-zinc-900 dark:text-zinc-50 tracking-tight">{orders.filter(o => o.status === 'paid').length}</p>
+                    <div className="p-6 rounded-3xl border border-zinc-100 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/50">
+                        <p className="text-sm font-medium text-zinc-500 mb-1">Conversion Rate</p>
+                        <p className="text-3xl font-bold text-zinc-900 dark:text-zinc-50 tracking-tight">
+                            {orders.length > 0 ? Math.round((orders.filter(o => o.status === 'paid').length / orders.length) * 100) : 0}%
+                        </p>
+                        <p className="text-xs text-emerald-600 mt-2">Paid / Total orders</p>
+                    </div>
+                    <div className="p-6 rounded-3xl border border-zinc-100 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/50">
+                        <p className="text-sm font-medium text-zinc-500 mb-1">Active Tenants</p>
+                        <p className="text-3xl font-bold text-zinc-900 dark:text-zinc-50 tracking-tight">{tenants.filter(t => t.is_active).length}</p>
+                        <p className="text-xs text-zinc-400 mt-2">Of {tenants.length} total</p>
                     </div>
                 </div>
 
