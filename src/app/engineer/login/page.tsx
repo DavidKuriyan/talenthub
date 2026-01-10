@@ -24,11 +24,30 @@ export default function EngineerLoginPage() {
         setError(null);
 
         try {
-            const { error: signInError } = await supabase.auth.signInWithPassword({
+            const { data: authData, error: signInError } = await supabase.auth.signInWithPassword({
                 email,
                 password,
             });
             if (signInError) throw signInError;
+
+            // Check if user has tenant_id, if not assign to first available tenant
+            const user = authData.user;
+            if (user && !user.app_metadata?.tenant_id && !user.user_metadata?.tenant_id) {
+                // Fetch first active tenant
+                const { data: defaultTenant } = await supabase
+                    .from("tenants")
+                    .select("id")
+                    .eq("is_active", true)
+                    .limit(1)
+                    .single();
+
+                if (defaultTenant) {
+                    // Update user metadata with tenant_id
+                    await supabase.auth.updateUser({
+                        data: { tenant_id: defaultTenant.id }
+                    });
+                }
+            }
 
             await logAuthEvent("login", { email, portal: "engineer" });
             router.push("/engineer/profile");
