@@ -202,6 +202,7 @@ export interface Database {
                     skills: Json
                     experience_years: number
                     resume_url: string | null
+                    availability: 'available' | 'busy' | 'unavailable'
                     created_at: string
                 }
                 Insert: {
@@ -211,6 +212,7 @@ export interface Database {
                     skills?: Json
                     experience_years?: number
                     resume_url?: string | null
+                    availability?: 'available' | 'busy' | 'unavailable'
                     created_at?: string
                 }
                 Update: {
@@ -220,6 +222,7 @@ export interface Database {
                     skills?: Json
                     experience_years?: number
                     resume_url?: string | null
+                    availability?: 'available' | 'busy' | 'unavailable'
                     created_at?: string
                 }
             },
@@ -251,7 +254,110 @@ export interface Database {
                     status?: 'pending' | 'interview_scheduled' | 'hired' | 'rejected'
                     created_at?: string
                 }
+            },
+            interviews: {
+                Row: {
+                    id: string
+                    tenant_id: string
+                    match_id: string
+                    scheduled_at: string
+                    jitsi_room_id: string
+                    status: 'scheduled' | 'completed' | 'cancelled'
+                    notes: string | null
+                    created_at: string
+                }
+                Insert: {
+                    id?: string
+                    tenant_id: string
+                    match_id: string
+                    scheduled_at: string
+                    jitsi_room_id: string
+                    status?: 'scheduled' | 'completed' | 'cancelled'
+                    notes?: string | null
+                    created_at?: string
+                }
+                Update: {
+                    id?: string
+                    tenant_id?: string
+                    match_id?: string
+                    scheduled_at?: string
+                    jitsi_room_id?: string
+                    status?: 'scheduled' | 'completed' | 'cancelled'
+                    notes?: string | null
+                    created_at?: string
+                }
+            },
+            offer_letters: {
+                Row: {
+                    id: string
+                    tenant_id: string
+                    match_id: string
+                    salary: number
+                    start_date: string
+                    document_url: string | null
+                    status: 'pending' | 'accepted' | 'rejected'
+                    created_at: string
+                }
+                Insert: {
+                    id?: string
+                    tenant_id: string
+                    match_id: string
+                    salary: number
+                    start_date: string
+                    document_url?: string | null
+                    status?: 'pending' | 'accepted' | 'rejected'
+                    created_at?: string
+                }
+                Update: {
+                    id?: string
+                    tenant_id?: string
+                    match_id?: string
+                    salary?: number
+                    start_date?: string
+                    document_url?: string | null
+                    status?: 'pending' | 'accepted' | 'rejected'
+                    created_at?: string
+                }
+            },
+            invoices: {
+                Row: {
+                    id: string
+                    tenant_id: string
+                    match_id: string | null
+                    engineer_id: string | null
+                    amount: number
+                    razorpay_order_id: string | null
+                    razorpay_payment_id: string | null
+                    status: 'pending' | 'paid' | 'failed'
+                    description: string | null
+                    created_at: string
+                }
+                Insert: {
+                    id?: string
+                    tenant_id: string
+                    match_id?: string | null
+                    engineer_id?: string | null
+                    amount: number
+                    razorpay_order_id?: string | null
+                    razorpay_payment_id?: string | null
+                    status?: 'pending' | 'paid' | 'failed'
+                    description?: string | null
+                    created_at?: string
+                }
+                Update: {
+                    id?: string
+                    tenant_id?: string
+                    match_id?: string | null
+                    engineer_id?: string | null
+                    amount?: number
+                    razorpay_order_id?: string | null
+                    razorpay_payment_id?: string | null
+                    status?: 'pending' | 'paid' | 'failed'
+                    description?: string | null
+                    created_at?: string
+                }
             }
         }
     }
 }
+

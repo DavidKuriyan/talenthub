@@ -6,6 +6,7 @@ const profileSchema = z.object({
     skills: z.array(z.string()),
     experience_years: z.number().min(0).max(50),
     resume_url: z.string().optional().or(z.literal("")),
+    availability: z.enum(["available", "busy", "unavailable"]).optional(),
 });
 
 /**
@@ -54,7 +55,7 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: result.error.flatten() }, { status: 400 });
         }
 
-        const { skills, experience_years, resume_url } = result.data;
+        const { skills, experience_years, resume_url, availability } = result.data;
         const tenantId = session.user.app_metadata.tenant_id || 'talenthub';
 
         // Upsert profile
@@ -65,7 +66,8 @@ export async function POST(req: Request) {
                 tenant_id: tenantId,
                 skills,
                 experience_years,
-                resume_url: resume_url || null
+                resume_url: resume_url || null,
+                availability: availability || "available"
             } as any, { onConflict: 'user_id' })
             .select()
             .single();

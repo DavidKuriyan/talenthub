@@ -58,7 +58,16 @@ export async function middleware(request: NextRequest) {
     const { data: { session } } = await supabase.auth.getSession()
 
     const url = request.nextUrl.clone()
-    const isAuthPage = url.pathname === '/login' || url.pathname === '/register'
+
+    // Public auth pages - all login and register routes
+    const publicAuthPages = [
+        '/login',
+        '/register',
+        '/engineer/login',
+        '/tenant/login',
+        '/admin/login'
+    ]
+    const isAuthPage = publicAuthPages.some(page => url.pathname === page)
 
     if (!session && !isAuthPage) {
         url.pathname = '/login'
@@ -74,10 +83,10 @@ export async function middleware(request: NextRequest) {
     if (session?.user) {
         const tenantId = session.user.app_metadata.tenant_id || 'talenthub'
 
-        // Basic path-based protection for /admin
-        if (url.pathname.startsWith('/admin')) {
-            const role = session.user.app_metadata.role
-            if (role !== 'admin') {
+        // Basic path-based protection for /admin (except login page)
+        if (url.pathname.startsWith('/admin') && url.pathname !== '/admin/login') {
+            const role = session.user.app_metadata.role || session.user.user_metadata?.role
+            if (role !== 'admin' && role !== 'super_admin') {
                 url.pathname = '/products'
                 return NextResponse.redirect(url)
             }

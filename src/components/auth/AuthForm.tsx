@@ -8,6 +8,7 @@ import { useRouter } from "next/navigation";
 interface AuthFormProps {
     mode: "login" | "register";
     adminMode?: boolean;
+    portalType?: "default" | "engineer" | "admin";
 }
 
 interface Tenant {
@@ -22,7 +23,7 @@ interface Tenant {
  * and auto-creates user row in public.users table on registration.
  * @businessRule Users are assigned to selected tenant on registration.
  */
-export default function AuthForm({ mode, adminMode = false }: AuthFormProps) {
+export default function AuthForm({ mode, adminMode = false, portalType = "default" }: AuthFormProps) {
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [selectedTenant, setSelectedTenant] = useState<string>("");
@@ -110,6 +111,9 @@ export default function AuthForm({ mode, adminMode = false }: AuthFormProps) {
                         throw new Error("Access denied. Admin privileges required.");
                     }
                     router.push("/admin");
+                } else if (portalType === "engineer") {
+                    // Engineer portal - route to engineer profile
+                    router.push("/engineer/profile");
                 } else {
                     // Route based on user role
                     const role = signInData.user?.user_metadata?.role;

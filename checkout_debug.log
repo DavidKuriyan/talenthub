@@ -140,3 +140,6 @@
 [2026-01-09T20:34:44.213Z] ✅ Resolved Tenant ID: 930e6f70-f5cb-41be-84d2-4e5e31f1864e
 [2026-01-09T20:34:44.218Z] 🔄 Creating Razorpay Order...
 [2026-01-09T20:34:44.518Z] ❌ Razorpay API Error: {"statusCode":401,"error":{"code":"BAD_REQUEST_ERROR","description":"Authentication failed"}}
+[2026-01-10T03:21:40.560Z] 💳 Checkout API called
+[2026-01-10T03:21:40.637Z] 📦 Processing order for 1 items, Total: 900000
+[2026-01-10T03:21:40.666Z] ❌ Unauthorized attempt
