@@ -27,8 +27,8 @@ export default async function ClientDashboard() {
                 <h1 className="text-2xl font-bold text-red-500">Access Denied</h1>
                 <p className="mt-2 text-zinc-600">This dashboard is for Clients (Subscribers) only.</p>
                 <p className="mt-1 text-zinc-400 text-sm">Your role: {role || "not set"}</p>
-                <Link href="/products" className="mt-4 inline-block text-blue-600 hover:underline">
-                    Go to Marketplace
+                <Link href="/organization/dashboard" className="mt-4 inline-block text-blue-600 hover:underline">
+                    Go to Organization Dashboard
                 </Link>
             </div>
         );

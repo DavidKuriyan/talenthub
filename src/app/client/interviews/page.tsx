@@ -99,8 +99,8 @@ export default function ClientInterviewsPage() {
             const tenantId = session.user.user_metadata?.tenant_id || session.user.app_metadata?.tenant_id;
             const jitsiRoomId = generateJitsiRoomId();
 
-            const { error } = await supabase
-                .from("interviews")
+            const { error } = await (supabase
+                .from("interviews") as any)
                 .insert({
                     tenant_id: tenantId,
                     match_id: selectedMatch,
@@ -113,8 +113,8 @@ export default function ClientInterviewsPage() {
             if (error) throw error;
 
             // Update match status
-            await supabase
-                .from("matches")
+            await (supabase
+                .from("matches") as any)
                 .update({ status: "interview_scheduled" })
                 .eq("id", selectedMatch);
 
@@ -229,8 +229,8 @@ export default function ClientInterviewsPage() {
                                             <p className="text-zinc-400 text-sm">{new Date(interview.scheduled_at).toLocaleString()}</p>
                                         </div>
                                         <span className={`px-3 py-1 rounded-full text-xs font-medium ${interview.status === 'completed' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' :
-                                                interview.status === 'cancelled' ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' :
-                                                    'bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-400'
+                                            interview.status === 'cancelled' ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' :
+                                                'bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-400'
                                             }`}>
                                             {interview.status}
                                         </span>

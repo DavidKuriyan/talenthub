@@ -42,6 +42,19 @@ export default function Notifications() {
             const { data: { session } } = await supabase.auth.getSession();
             if (!session?.user) return;
 
+            // Try to fetch real notifications from table
+            const { data: realNotifs, error: tableError } = await supabase
+                .from("notifications")
+                .select("*")
+                .order("created_at", { ascending: false })
+                .limit(10);
+
+            if (!tableError && realNotifs && realNotifs.length > 0) {
+                setNotifications(realNotifs as Notification[]);
+                return;
+            }
+
+            // Fallback to generating mock notifications based on user's data
             // For now, generate mock notifications based on user's data
             // In production, this would fetch from a notifications table
             const mockNotifications: Notification[] = [

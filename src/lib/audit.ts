@@ -33,7 +33,7 @@ export async function logSensitiveOperation(
     severity: "info" | "warning" | "error" = "info"
 ): Promise<string | null> {
     try {
-        const { data, error } = await supabase.rpc("log_sensitive_operation", {
+        const { data, error } = await (supabase.rpc as any)("log_sensitive_operation", {
             p_action: action,
             p_details: details,
             p_severity: severity,
@@ -64,7 +64,7 @@ export async function queryAuditLogs(
     limit: number = 100
 ): Promise<AuditLog[]> {
     try {
-        const { data, error } = await supabase.rpc("query_audit_logs", {
+        const { data, error } = await (supabase.rpc as any)("query_audit_logs", {
             p_action_filter: actionFilter,
             p_hours_back: hoursBack,
             p_limit: limit,
@@ -93,7 +93,7 @@ export async function exportAuditLogs(
     try {
         const start = startDate || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000); // 30 days ago
 
-        const { data, error } = await supabase.rpc("export_audit_logs", {
+        const { data, error } = await (supabase.rpc as any)("export_audit_logs", {
             p_start_date: start.toISOString(),
             p_end_date: endDate.toISOString(),
         });
@@ -116,7 +116,7 @@ export async function exportAuditLogs(
  */
 export async function detectSuspiciousActivity(): Promise<SuspiciousActivity[]> {
     try {
-        const { data, error } = await supabase.rpc("detect_suspicious_activity");
+        const { data, error } = await (supabase.rpc as any)("detect_suspicious_activity");
 
         if (error) {
             console.error("Error detecting suspicious activity:", error);
@@ -157,7 +157,7 @@ export async function getAuditLogSummary() {
  * Log authentication event
  */
 export async function logAuthEvent(
-    eventType: "login" | "logout" | "registration" | "password_change" | "auth_failure",
+    eventType: "login" | "logout" | "registration" | "password_change" | "auth_failure" | "admin_login" | "admin_logout" | "admin_auth_failure" | "admin_login_attempt",
     details?: Record<string, any>
 ): Promise<void> {
     const severity = eventType === "auth_failure" ? "warning" : "info";
@@ -371,7 +371,7 @@ export async function downloadAuditReport(
             return;
         }
 
-        const blob = new Blob([csv], { type: "text/csv" });
+        const blob = new Blob([typeof csv === 'string' ? csv : JSON.stringify(csv)], { type: "text/csv" });
         const url = window.URL.createObjectURL(blob);
         const link = document.createElement("a");
         link.href = url;

@@ -22,7 +22,7 @@ export default async function MatchDetailsPage(props: PageProps) {
     const userId = session.user.id;
 
     // Fetch Match with related data
-    const { data: match, error } = await supabase
+    const { data: matchData, error } = await supabase
         .from("matches")
         .select(`
             id,
@@ -43,10 +43,12 @@ export default async function MatchDetailsPage(props: PageProps) {
         .eq("id", id)
         .single();
 
-    if (error || !match) {
+    if (error || !matchData) {
         console.error("Error fetching match:", error);
         return <div className="p-8">Match not found</div>;
     }
+
+    const match = matchData as any;
 
     // Type casting for join results (Supabase types can be tricky with joins)
     const requirement = match.requirements as any;

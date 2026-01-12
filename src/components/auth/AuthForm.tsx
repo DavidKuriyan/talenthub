@@ -93,7 +93,7 @@ export default function AuthForm({ mode, adminMode = false, portalType = "defaul
                 }
 
                 await logAuthEvent("registration", { email, tenant_id: tenantId, role });
-                router.push("/products");
+                router.push("/organization/dashboard");
             } else {
                 const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
                     email,
@@ -122,7 +122,7 @@ export default function AuthForm({ mode, adminMode = false, portalType = "defaul
                     } else if (role === "provider") {
                         router.push("/engineer/profile");
                     } else {
-                        router.push("/products");
+                        router.push("/organization/dashboard");
                     }
                 }
             }

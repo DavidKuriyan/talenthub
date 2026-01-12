@@ -15,7 +15,8 @@ export default function AdminUsersPage() {
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [creating, setCreating] = useState(false);
     const [newEmail, setNewEmail] = useState("");
-    const [newRole, setNewRole] = useState<"admin" | "provider" | "subscriber">("subscriber");
+    const [newPassword, setNewPassword] = useState("");
+    const [newRole, setNewRole] = useState<"admin" | "provider" | "subscriber" | "super_admin">("subscriber");
     const [newTenant, setNewTenant] = useState("");
 
     useEffect(() => {
@@ -25,8 +26,8 @@ export default function AdminUsersPage() {
     const fetchData = async () => {
         try {
             const [usersRes, tenantsRes] = await Promise.all([
-                supabase.from("users").select("*, tenants(name)").order("created_at", { ascending: false }),
-                supabase.from("tenants").select("id, name, slug").eq("is_active", true)
+                (supabase.from("users") as any).select("*, tenants(name)").order("created_at", { ascending: false }),
+                (supabase.from("tenants") as any).select("id, name, slug").eq("is_active", true)
             ]);
 
             if (usersRes.data) setUsers(usersRes.data);
@@ -47,18 +48,23 @@ export default function AdminUsersPage() {
 
         setCreating(true);
         try {
-            const { error } = await supabase
-                .from("users")
-                .insert({
+            const response = await fetch("/api/admin/invite-user", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
                     email: newEmail,
+                    password: newPassword,
                     role: newRole,
                     tenant_id: newTenant
-                });
+                })
+            });
 
-            if (error) throw error;
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.error || "Failed to invite user");
 
             setShowCreateModal(false);
             setNewEmail("");
+            setNewPassword("");
             setNewRole("subscriber");
             fetchData();
         } catch (err: any) {
@@ -71,8 +77,8 @@ export default function AdminUsersPage() {
 
     const updateRole = async (userId: string, newRole: string) => {
         try {
-            const { error } = await supabase
-                .from("users")
+            const { error } = await (supabase
+                .from("users") as any)
                 .update({ role: newRole })
                 .eq("id", userId);
 
@@ -86,6 +92,7 @@ export default function AdminUsersPage() {
     const getRoleBadge = (role: string) => {
         switch (role) {
             case 'admin': return 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400';
+            case 'super_admin': return 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400';
             case 'provider': return 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400';
             case 'subscriber': return 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400';
             default: return 'bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-400';
@@ -179,6 +186,7 @@ export default function AdminUsersPage() {
                                                 <option value="subscriber">Client</option>
                                                 <option value="provider">Engineer</option>
                                                 <option value="admin">Admin</option>
+                                                <option value="super_admin">Super Admin</option>
                                             </select>
                                         </td>
                                     </tr>
@@ -202,6 +210,17 @@ export default function AdminUsersPage() {
                                         onChange={(e) => setNewEmail(e.target.value)}
                                         className="w-full px-4 py-3 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-50"
                                         required
+                                        placeholder="user@example.com"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">Password (Optional)</label>
+                                    <input
+                                        type="password"
+                                        value={newPassword}
+                                        onChange={(e) => setNewPassword(e.target.value)}
+                                        className="w-full px-4 py-3 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-50"
+                                        placeholder="Leave blank for auto-gen"
                                     />
                                 </div>
                                 <div>
@@ -227,6 +246,7 @@ export default function AdminUsersPage() {
                                         <option value="subscriber">Client (Subscriber)</option>
                                         <option value="provider">Engineer (Provider)</option>
                                         <option value="admin">Administrator</option>
+                                        <option value="super_admin">Super Admin</option>
                                     </select>
                                 </div>
                                 <div className="flex gap-3 pt-4">

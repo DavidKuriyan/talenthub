@@ -47,7 +47,7 @@ export default function ChatWindow({ matchId, currentUserId }: ChatWindowProps) 
         });
 
         return () => {
-            unsubscribe.then((unsub) => unsub());
+            unsubscribe();
         };
     }, [matchId]);
 
@@ -95,8 +95,8 @@ export default function ChatWindow({ matchId, currentUserId }: ChatWindowProps) 
                             <div key={msg.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
                                 <div
                                     className={`max-w-[70%] rounded-lg px-4 py-2 text-sm ${isMe
-                                            ? 'bg-blue-600 text-white rounded-br-none'
-                                            : 'bg-zinc-100 text-zinc-800 rounded-bl-none'
+                                        ? 'bg-blue-600 text-white rounded-br-none'
+                                        : 'bg-zinc-100 text-zinc-800 rounded-bl-none'
                                         }`}
                                 >
                                     {msg.content}

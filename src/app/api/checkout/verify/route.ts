@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import crypto from "crypto";
 import { createClient } from "@/lib/server";
-import { logAction } from "@/lib/audit";
+import { logPaymentEvent } from "@/lib/audit";
 
 /**
  * @feature payments:verify
@@ -48,8 +48,8 @@ export async function POST(req: Request) {
         );
 
         // Step 4: Create or update order record in database
-        const { data: existingOrder } = await supabase
-            .from("orders")
+        const { data: existingOrder } = await (supabase
+            .from("orders") as any)
             .select("*")
             .eq("razorpay_order_id", orderId)
             .single();
@@ -57,8 +57,8 @@ export async function POST(req: Request) {
         let order;
         if (existingOrder) {
             // Update existing order to 'paid' status
-            const { data: updatedOrder, error: updateError } = await supabase
-                .from("orders")
+            const { data: updatedOrder, error: updateError } = await (supabase
+                .from("orders") as any)
                 .update({
                     status: "paid",
                     razorpay_payment_id: paymentId,
@@ -78,8 +78,8 @@ export async function POST(req: Request) {
             order = updatedOrder;
         } else {
             // Create new order if doesn't exist (fallback)
-            const { data: newOrder, error: orderError } = await supabase
-                .from("orders")
+            const { data: newOrder, error: orderError } = await (supabase
+                .from("orders") as any)
                 .insert({
                     tenant_id: tenantId,
                     user_id: userId,
@@ -102,8 +102,7 @@ export async function POST(req: Request) {
         }
 
         // Step 5: Log payment event for audit trail
-        await logAction("payment_success", {
-            order_id: order.id,
+        await logPaymentEvent("success", order.id, {
             razorpay_order_id: orderId,
             razorpay_payment_id: paymentId,
             amount: total,

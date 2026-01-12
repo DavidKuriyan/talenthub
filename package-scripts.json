@@ -1,0 +1,7 @@
+{
+    "scripts": {
+        "check-env": "node scripts/check-env.js",
+        "test-setup": "node scripts/check-env.js && echo Environment verified successfully!",
+        "dev:verify": "node scripts/check-env.js && npm run dev"
+    }
+}

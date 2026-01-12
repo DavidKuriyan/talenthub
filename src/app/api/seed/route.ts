@@ -29,20 +29,21 @@ export async function GET(req: Request) {
 
         // 2. Seed Data
         // Get Tenants
-        const { data: tenants } = await supabase.from('tenants').select('*');
-        if (!tenants || tenants.length === 0) {
+        const { data: tenantsData } = await supabase.from('tenants').select('*');
+        if (!tenantsData || tenantsData.length === 0) {
             return NextResponse.json({ error: "No tenants found" }, { status: 500 });
         }
+        const tenants = tenantsData as any[];
         const tenantId = tenants.find(t => t.slug === 'talenthub')?.id || tenants[0].id;
 
         // Get a user to act as Client and Engineer (or create placeholders)
         // For simplicity, we just look for any existing users or prompt error if none.
-        const { data: users } = await supabase.from('users').select('*').eq('tenant_id', tenantId);
+        const { data: users } = await (supabase.from('users') as any).select('*').eq('tenant_id', tenantId);
         let clientUser, engineerUser;
 
         if (!users || users.length === 0) {
             // Create a demo user if none exist
-            const { data: newUser, error: createError } = await supabase.from('users').insert({
+            const { data: newUser, error: createError } = await (supabase.from('users') as any).insert({
                 tenant_id: tenantId,
                 email: 'demo@talenthub.com',
                 role: 'subscriber'
@@ -68,7 +69,7 @@ export async function GET(req: Request) {
         // (Optional, or just insert)
 
         // Insert Requirement
-        const { data: req, error: reqError } = await supabase.from('requirements').insert({
+        const { data: req, error: reqError } = await (supabase.from('requirements') as any).insert({
             tenant_id: tenantId,
             client_id: clientUser.id,
             title: "Seed: Senior React Developer",
@@ -80,7 +81,7 @@ export async function GET(req: Request) {
         if (reqError) throw reqError;
 
         // Insert Profile
-        const { data: profile, error: profError } = await supabase.from('profiles').upsert({
+        const { data: profile, error: profError } = await (supabase.from('profiles') as any).upsert({
             user_id: engineerUser.id,
             tenant_id: tenantId,
             skills: ["React", "TypeScript", "Tailwind"],
@@ -94,8 +95,8 @@ export async function GET(req: Request) {
             success: true,
             message: "Seeding Complete",
             details: {
-                requirement: req.id,
-                profile: profile.id
+                requirement: (req as any).id,
+                profile: (profile as any).id
             }
         });
 

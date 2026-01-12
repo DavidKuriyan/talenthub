@@ -4,7 +4,7 @@ import Link from "next/link";
 
 /**
  * @feature ENGINEER_OFFERS
- * @aiNote Displays offer letters for engineers with accept/reject actions.
+ * @aiNote View offer letters for the engineer
  */
 export default async function EngineerOffersPage() {
     const supabase = await createClient();
@@ -14,149 +14,149 @@ export default async function EngineerOffersPage() {
         redirect("/engineer/login");
     }
 
-    // Get engineer's profile
+    // Get engineer's profile first
     const { data: profile } = await supabase
         .from("profiles")
         .select("id")
         .eq("user_id", session.user.id)
         .single();
 
-    if (!profile) {
-        redirect("/engineer/profile");
-    }
-
-    // Fetch offer letters for this engineer
-    const { data: offers, error } = await supabase
-        .from("offer_letters")
-        .select(`
-            id,
-            salary,
-            start_date,
-            document_url,
-            status,
-            created_at,
-            matches!inner (
-                id,
-                requirements (
-                    title
+    let offers: any[] = [];
+    if (profile && (profile as any).id) {
+        // Fetch offers via matches linked to this profile
+        const { data } = await supabase
+            .from("offer_letters")
+            .select(`
+                *,
+                matches!inner (
+                    id,
+                    profile_id,
+                    requirements (
+                        title
+                    )
                 )
-            )
-        `)
-        .eq("matches.profile_id", profile.id)
-        .order("created_at", { ascending: false });
+            `)
+            .eq("matches.profile_id", (profile as any).id)
+            .order("created_at", { ascending: false });
 
-    if (error) {
-        console.error("Error fetching offers:", error);
+        offers = data || [];
     }
 
-    type OfferWithMatch = {
-        id: string;
-        salary: number;
-        start_date: string;
-        document_url: string | null;
-        status: string;
-        created_at: string;
-        matches: {
-            id: string;
-            requirements: {
-                title: string;
-            };
-        };
-    };
-
-    const typedOffers = (offers || []) as OfferWithMatch[];
-
-    const getStatusBadge = (status: string) => {
-        switch (status) {
-            case 'pending': return 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400';
-            case 'accepted': return 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400';
-            case 'rejected': return 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400';
-            default: return 'bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-400';
-        }
-    };
+    const pendingOffers = (offers as any[]).filter(o => o.status === 'pending') || [];
+    const acceptedOffers = (offers as any[]).filter(o => o.status === 'accepted') || [];
+    const rejectedOffers = (offers as any[]).filter(o => o.status === 'rejected') || [];
 
     return (
-        <div className="min-h-screen bg-zinc-50 dark:bg-black p-8">
-            <div className="max-w-4xl mx-auto">
-                {/* Header */}
-                <div className="flex items-center justify-between mb-8">
-                    <div>
-                        <h1 className="text-3xl font-bold text-zinc-900 dark:text-zinc-50">Offer Letters</h1>
-                        <p className="text-zinc-500 mt-1">Review and respond to job offers</p>
+        <div className="min-h-screen bg-gradient-to-br from-emerald-900 via-teal-800 to-emerald-900 p-6">
+            <div className="max-w-5xl mx-auto">
+                <Link href="/engineer/profile" className="text-emerald-300 hover:text-emerald-100 text-sm mb-4 inline-block">
+                    ← Back to Profile
+                </Link>
+
+                <h1 className="text-3xl font-bold text-white mb-2">Offer Letters</h1>
+                <p className="text-emerald-200 mb-8">
+                    Review and manage your job offers
+                </p>
+
+                {/* Stats */}
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+                    <div className="bg-white/10 backdrop-blur-xl p-6 rounded-2xl border border-emerald-700/30">
+                        <p className="text-emerald-400 text-sm mb-1">Total Offers</p>
+                        <p className="text-3xl font-bold text-white">{offers?.length || 0}</p>
                     </div>
-                    <Link
-                        href="/engineer/profile"
-                        className="border border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 px-4 py-2 rounded-xl font-medium hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
-                    >
-                        ← Back to Profile
-                    </Link>
+                    <div className="bg-white/10 backdrop-blur-xl p-6 rounded-2xl border border-emerald-700/30">
+                        <p className="text-emerald-400 text-sm mb-1">Pending</p>
+                        <p className="text-3xl font-bold text-yellow-300">{pendingOffers.length}</p>
+                    </div>
+                    <div className="bg-white/10 backdrop-blur-xl p-6 rounded-2xl border border-emerald-700/30">
+                        <p className="text-emerald-400 text-sm mb-1">Accepted</p>
+                        <p className="text-3xl font-bold text-green-300">{acceptedOffers.length}</p>
+                    </div>
+                    <div className="bg-white/10 backdrop-blur-xl p-6 rounded-2xl border border-emerald-700/30">
+                        <p className="text-emerald-400 text-sm mb-1">Declined</p>
+                        <p className="text-3xl font-bold text-red-300">{rejectedOffers.length}</p>
+                    </div>
                 </div>
 
-                {/* Offers List */}
-                {typedOffers.length > 0 ? (
+                {offers && offers.length > 0 ? (
                     <div className="space-y-4">
-                        {typedOffers.map((offer) => (
-                            <div key={offer.id} className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-6">
-                                <div className="flex justify-between items-start mb-4">
-                                    <div>
-                                        <h2 className="text-xl font-bold text-zinc-900 dark:text-zinc-50">{offer.matches.requirements.title}</h2>
-                                        <span className={`inline-block mt-2 px-3 py-1 rounded-full text-xs font-medium ${getStatusBadge(offer.status)}`}>
-                                            {offer.status.charAt(0).toUpperCase() + offer.status.slice(1)}
-                                        </span>
+                        {offers.map((offer: any) => (
+                            <div
+                                key={offer.id}
+                                className="bg-white/10 backdrop-blur-xl p-6 rounded-2xl border border-emerald-700/30"
+                            >
+                                <div className="flex items-start justify-between mb-4">
+                                    <div className="flex-1">
+                                        <h3 className="text-xl font-bold text-white mb-1">
+                                            {offer.position} at {offer.company_name}
+                                        </h3>
+                                        <p className="text-emerald-200 text-sm">
+                                            💰 ₹{(offer.salary / 100000).toFixed(1)}L per annum
+                                        </p>
+                                        <p className="text-emerald-200 text-sm">
+                                            📅 Joining Date: {new Date(offer.joining_date).toLocaleDateString()}
+                                        </p>
                                     </div>
-                                    {offer.status === 'pending' && (
-                                        <div className="flex gap-2">
-                                            <form action={`/api/offers/${offer.id}/accept`} method="POST">
-                                                <button type="submit" className="bg-emerald-600 text-white px-4 py-2 rounded-xl text-sm font-bold hover:bg-emerald-700 transition-colors">
-                                                    Accept Offer
-                                                </button>
-                                            </form>
-                                            <form action={`/api/offers/${offer.id}/reject`} method="POST">
-                                                <button type="submit" className="bg-zinc-200 dark:bg-zinc-700 text-zinc-700 dark:text-zinc-300 px-4 py-2 rounded-xl text-sm font-medium hover:bg-zinc-300 dark:hover:bg-zinc-600 transition-colors">
-                                                    Decline
-                                                </button>
-                                            </form>
-                                        </div>
-                                    )}
+                                    <span className={`px-3 py-1 rounded-full text-xs font-medium ${offer.status === 'pending'
+                                        ? 'bg-yellow-500/20 text-yellow-200 border border-yellow-500/50'
+                                        : offer.status === 'accepted'
+                                            ? 'bg-green-500/20 text-green-200 border border-green-500/50'
+                                            : 'bg-red-500/20 text-red-200 border border-red-500/50'
+                                        }`}>
+                                        {offer.status}
+                                    </span>
                                 </div>
 
-                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-zinc-50 dark:bg-zinc-800/50 rounded-xl">
-                                    <div>
-                                        <p className="text-sm text-zinc-500">Salary Offered</p>
-                                        <p className="text-lg font-bold text-emerald-600">₹{(offer.salary / 100).toLocaleString()}/month</p>
-                                    </div>
-                                    <div>
-                                        <p className="text-sm text-zinc-500">Start Date</p>
-                                        <p className="text-lg font-bold text-zinc-900 dark:text-zinc-50">{new Date(offer.start_date).toLocaleDateString()}</p>
-                                    </div>
-                                    <div>
-                                        <p className="text-sm text-zinc-500">Received On</p>
-                                        <p className="text-lg font-bold text-zinc-900 dark:text-zinc-50">{new Date(offer.created_at).toLocaleDateString()}</p>
-                                    </div>
-                                </div>
+                                {offer.description && (
+                                    <p className="text-emerald-200 text-sm mb-4">
+                                        {offer.description}
+                                    </p>
+                                )}
 
-                                {offer.document_url && (
-                                    <div className="mt-4 pt-4 border-t border-zinc-200 dark:border-zinc-700">
-                                        <a
-                                            href={offer.document_url}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className="inline-flex items-center gap-2 text-blue-600 hover:text-blue-700 font-medium text-sm"
-                                        >
-                                            📄 Download Offer Letter
-                                        </a>
+                                {offer.status === 'pending' && (
+                                    <div className="flex gap-2">
+                                        <button className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors font-medium">
+                                            ✓ Accept Offer
+                                        </button>
+                                        <button className="px-4 py-2 bg-red-600/80 text-white rounded-lg hover:bg-red-700 transition-colors font-medium">
+                                            ✗ Decline Offer
+                                        </button>
+                                        {offer.letter_url && (
+                                            <a
+                                                href={offer.letter_url}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="px-4 py-2 bg-white/10 text-white border border-white/20 rounded-lg hover:bg-white/20 transition-colors font-medium"
+                                            >
+                                                📄 View Letter
+                                            </a>
+                                        )}
+                                    </div>
+                                )}
+
+                                {offer.status === 'accepted' && (
+                                    <div className="bg-green-500/10 border border-green-500/30 rounded-lg px-4 py-3 text-green-200 text-sm">
+                                        ✓ You have accepted this offer. The organization will contact you with next steps.
                                     </div>
                                 )}
                             </div>
                         ))}
                     </div>
                 ) : (
-                    <div className="text-center py-20 bg-white dark:bg-zinc-900 rounded-2xl border border-dashed border-zinc-300 dark:border-zinc-700">
-                        <div className="w-16 h-16 rounded-2xl bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-3xl mx-auto mb-4">📄</div>
-                        <h3 className="text-lg font-bold text-zinc-900 dark:text-zinc-50">No Offer Letters Yet</h3>
-                        <p className="text-zinc-500 mt-2 max-w-md mx-auto">
-                            Once you successfully complete interviews, you&apos;ll receive offer letters here.
+                    <div className="bg-white/10 backdrop-blur-xl p-12 rounded-2xl border border-emerald-700/30 text-center">
+                        <div className="text-6xl mb-4">📧</div>
+                        <h3 className="text-xl font-bold text-white mb-2">
+                            No Offer Letters Yet
+                        </h3>
+                        <p className="text-emerald-200 mb-6">
+                            Offer letters from organizations will appear here after successful interviews
                         </p>
+                        <Link
+                            href="/engineer/jobs"
+                            className="inline-block px-6 py-3 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors font-medium"
+                        >
+                            View Matched Jobs
+                        </Link>
                     </div>
                 )}
             </div>

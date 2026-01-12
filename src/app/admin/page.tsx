@@ -81,14 +81,17 @@ export default function AdminDashboard() {
 
                 <nav className="flex flex-col gap-1">
                     <p className="px-2 text-[10px] font-bold text-zinc-400 uppercase tracking-widest mb-2">Platform Management</p>
-                    <a href="#" className="flex items-center gap-3 px-3 py-2 rounded-xl bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 font-medium transition-all">
+                    <a href="/admin" className="flex items-center gap-3 px-3 py-2 rounded-xl bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 font-medium transition-all">
                         Dashboard
                     </a>
-                    <a href="#" className="flex items-center gap-3 px-3 py-2 rounded-xl text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-all">
+                    <a href="/admin/tenants" className="flex items-center gap-3 px-3 py-2 rounded-xl text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-all">
                         Tenants
                     </a>
-                    <a href="#" className="flex items-center gap-3 px-3 py-2 rounded-xl text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-all">
-                        Integrations
+                    <a href="/admin/analytics" className="flex items-center gap-3 px-3 py-2 rounded-xl text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-all">
+                        Platform Stats
+                    </a>
+                    <a href="/admin/users" className="flex items-center gap-3 px-3 py-2 rounded-xl text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-all">
+                        Users
                     </a>
                 </nav>
             </aside>

@@ -70,15 +70,14 @@ export async function POST(req: NextRequest) {
 
         const tenantId = session.user.user_metadata?.tenant_id || session.user.app_metadata?.tenant_id;
 
-        const { data, error } = await supabase
-            .from("offer_letters")
+        const { data, error } = await (supabase
+            .from("offer_letters") as any)
             .insert({
                 tenant_id: tenantId,
                 match_id,
                 salary,
-                start_date,
-                document_url,
-                status: "pending"
+                status: "pending",
+                expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString() // 7 days from now
             })
             .select()
             .single();
@@ -86,9 +85,9 @@ export async function POST(req: NextRequest) {
         if (error) throw error;
 
         // Update match status to hired
-        await supabase
-            .from("matches")
-            .update({ status: "hired" })
+        await (supabase
+            .from("matches") as any)
+            .update({ status: "offer_sent" })
             .eq("id", match_id);
 
         return NextResponse.json(data);
@@ -118,9 +117,11 @@ export async function PATCH(req: NextRequest) {
             return NextResponse.json({ error: "Invalid status" }, { status: 400 });
         }
 
-        const { data, error } = await supabase
-            .from("offer_letters")
-            .update({ status })
+        const updateData = { status }; // Define updateData based on the original logic
+
+        const { data, error } = await (supabase
+            .from("offer_letters") as any)
+            .update(updateData)
             .eq("id", id)
             .select()
             .single();

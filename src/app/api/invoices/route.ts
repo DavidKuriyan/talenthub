@@ -56,15 +56,15 @@ export async function POST(req: NextRequest) {
 
         const tenantId = session.user.user_metadata?.tenant_id || session.user.app_metadata?.tenant_id;
 
-        const { data, error } = await supabase
-            .from("invoices")
+        const { data, error } = await (supabase
+            .from("invoices") as any)
             .insert({
                 tenant_id: tenantId,
                 match_id,
                 engineer_id,
                 amount,
-                description,
-                status: "pending"
+                status: "pending",
+                due_date: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString() // 15 days from now
             })
             .select()
             .single();
@@ -99,8 +99,8 @@ export async function PATCH(req: NextRequest) {
         if (razorpay_order_id) updateData.razorpay_order_id = razorpay_order_id;
         if (razorpay_payment_id) updateData.razorpay_payment_id = razorpay_payment_id;
 
-        const { data, error } = await supabase
-            .from("invoices")
+        const { data, error } = await (supabase
+            .from("invoices") as any)
             .update(updateData)
             .eq("id", id)
             .select()

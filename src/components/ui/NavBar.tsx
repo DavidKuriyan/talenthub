@@ -36,11 +36,35 @@ export default function NavBar() {
     const handleLogout = async () => {
         setLoading(true);
         try {
-            await supabase.auth.signOut();
-            router.push("/login");
-            router.refresh();
-        } catch (error) {
-            console.error("Logout error:", error);
+            // Check if there's an active session first
+            const { data: { session } } = await supabase.auth.getSession();
+
+            // Only sign out if there's an active session
+            if (session) {
+                const { error } = await supabase.auth.signOut();
+
+                if (error) {
+                    console.error("Logout error:", error);
+                    throw error;
+                }
+            }
+
+            // Clear user state regardless
+            setUser(null);
+
+            // Navigate to home page and force a full reload to clear state
+            window.location.href = "/";
+
+        } catch (error: any) {
+            // Handle AuthSessionMissingError gracefully - user is already logged out
+            if (error?.name === 'AuthSessionMissingError' || error?.message?.includes('session missing')) {
+                console.log("No active session, redirecting to home");
+                setUser(null);
+                window.location.href = "/";
+            } else {
+                console.error("Logout failed:", error);
+                alert("Failed to logout. Please try again.");
+            }
         } finally {
             setLoading(false);
         }

@@ -16,13 +16,13 @@ export default async function EngineerJobsPage() {
     }
 
     // Get engineer's profile
-    const { data: profile } = await supabase
-        .from("profiles")
+    const { data: profile } = await (supabase
+        .from("profiles") as any)
         .select("id, skills, availability")
         .eq("user_id", session.user.id)
-        .single();
+        .maybeSingle();
 
-    if (!profile) {
+    if (!profile || !profile.skills || (profile.skills as string[]).length === 0) {
         return (
             <div className="min-h-screen bg-zinc-50 dark:bg-black p-8 flex items-center justify-center">
                 <div className="text-center max-w-md">
@@ -38,8 +38,8 @@ export default async function EngineerJobsPage() {
     }
 
     // Fetch matches for this engineer's profile
-    const { data: matches, error } = await supabase
-        .from("matches")
+    const { data: matches, error } = await (supabase
+        .from("matches") as any)
         .select(`
             id,
             score,
@@ -53,7 +53,7 @@ export default async function EngineerJobsPage() {
                 status
             )
         `)
-        .eq("profile_id", profile.id)
+        .eq("profile_id", (profile as any).id)
         .order("created_at", { ascending: false });
 
     if (error) {

@@ -93,8 +93,8 @@ export default function ClientOffersPage() {
 
             const tenantId = session.user.user_metadata?.tenant_id || session.user.app_metadata?.tenant_id;
 
-            const { error } = await supabase
-                .from("offer_letters")
+            const { error } = await (supabase
+                .from("offer_letters") as any)
                 .insert({
                     tenant_id: tenantId,
                     match_id: selectedMatch,
@@ -106,8 +106,8 @@ export default function ClientOffersPage() {
             if (error) throw error;
 
             // Update match status to hired
-            await supabase
-                .from("matches")
+            await (supabase
+                .from("matches") as any)
                 .update({ status: "hired" })
                 .eq("id", selectedMatch);
 

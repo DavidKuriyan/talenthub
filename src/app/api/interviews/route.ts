@@ -71,14 +71,14 @@ export async function POST(req: NextRequest) {
         const tenantId = session.user.user_metadata?.tenant_id || session.user.app_metadata?.tenant_id;
         const jitsiRoomId = `talenthub-interview-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
-        const { data, error } = await supabase
-            .from("interviews")
+        const { data, error } = await (supabase
+            .from("interviews") as any)
             .insert({
                 tenant_id: tenantId,
                 match_id,
                 scheduled_at,
-                jitsi_room_id: jitsiRoomId,
                 notes,
+                jitsi_room_id: jitsiRoomId,
                 status: "scheduled"
             })
             .select()
@@ -87,8 +87,8 @@ export async function POST(req: NextRequest) {
         if (error) throw error;
 
         // Update match status
-        await supabase
-            .from("matches")
+        await (supabase
+            .from("matches") as any)
             .update({ status: "interview_scheduled" })
             .eq("id", match_id);
 
@@ -119,8 +119,8 @@ export async function PATCH(req: NextRequest) {
         if (status) updateData.status = status;
         if (notes !== undefined) updateData.notes = notes;
 
-        const { data, error } = await supabase
-            .from("interviews")
+        const { data, error } = await (supabase
+            .from("interviews") as any)
             .update(updateData)
             .eq("id", id)
             .select()

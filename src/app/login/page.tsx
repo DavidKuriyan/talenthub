@@ -29,8 +29,8 @@ export default function LoginPage() {
                     <button
                         onClick={() => setSelectedRole("engineer")}
                         className={`flex-1 py-3 px-4 rounded-xl font-medium text-sm transition-all flex items-center justify-center gap-2 ${selectedRole === "engineer"
-                                ? "bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow-lg"
-                                : "text-zinc-400 hover:text-white"
+                            ? "bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow-lg"
+                            : "text-zinc-400 hover:text-white"
                             }`}
                     >
                         <span className="text-lg">👷</span>
@@ -39,8 +39,8 @@ export default function LoginPage() {
                     <button
                         onClick={() => setSelectedRole("organization")}
                         className={`flex-1 py-3 px-4 rounded-xl font-medium text-sm transition-all flex items-center justify-center gap-2 ${selectedRole === "organization"
-                                ? "bg-gradient-to-r from-indigo-500 to-purple-600 text-white shadow-lg"
-                                : "text-zinc-400 hover:text-white"
+                            ? "bg-gradient-to-r from-indigo-500 to-purple-600 text-white shadow-lg"
+                            : "text-zinc-400 hover:text-white"
                             }`}
                     >
                         <span className="text-lg">🏢</span>
@@ -94,10 +94,16 @@ export default function LoginPage() {
                             </p>
                             <div className="flex flex-col gap-3">
                                 <Link
-                                    href="/tenant/login"
+                                    href="/organization/login"
                                     className="w-full py-3 px-6 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-bold hover:opacity-90 transition-all shadow-lg shadow-indigo-500/30 text-center"
                                 >
-                                    Sign In to Organization
+                                    Sign In as Organization
+                                </Link>
+                                <Link
+                                    href="/organization/register"
+                                    className="w-full py-3 px-6 rounded-xl border border-indigo-500/30 text-indigo-400 font-medium hover:bg-indigo-500/10 transition-all text-center"
+                                >
+                                    Register as Organization
                                 </Link>
                             </div>
                             <div className="mt-6 p-4 rounded-xl bg-indigo-500/10 border border-indigo-500/20">
@@ -110,9 +116,6 @@ export default function LoginPage() {
                                     <li>• Process payments via Razorpay</li>
                                 </ul>
                             </div>
-                            <p className="text-zinc-500 text-xs mt-6">
-                                Note: You must be registered by your organization admin before logging in.
-                            </p>
                         </div>
                     )}
                 </div>

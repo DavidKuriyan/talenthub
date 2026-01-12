@@ -3,14 +3,18 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 const requirementSchema = z.object({
-    title: z.string().min(5, "Title must be at least 5 characters"),
+    title: z.string().min(3, "Title too short"),
+    role: z.string().min(2, "Role required"),
     skills: z.array(z.string()).min(1, "Select at least one skill"),
-    budget: z.number().min(100, "Budget must be at least ₹100"),
+    experience_min: z.number().min(0),
+    experience_max: z.number().min(0),
+    salary_min: z.number().min(0),
+    salary_max: z.number().min(0),
 });
 
 /**
  * @feature MATCHING_ENGINE
- * @aiNote Handles creation of new job requirements. Enforces RLS via Supabase client.
+ * @aiNote Handles creation of new job requirements.
  */
 export async function POST(req: Request) {
     try {
@@ -29,19 +33,29 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: result.error.flatten() }, { status: 400 });
         }
 
-        const { title, skills, budget } = result.data;
-        const tenantId = session.user.app_metadata.tenant_id || 'talenthub';
+        const { title, role, skills, experience_min, experience_max, salary_min, salary_max } = result.data;
+
+        const tenantId = session.user.app_metadata?.tenant_id || session.user.user_metadata?.tenant_id;
+
+        if (!tenantId) {
+            return NextResponse.json({ error: "No tenant context found" }, { status: 400 });
+        }
 
         const { data, error } = await supabase
             .from("requirements")
             .insert({
                 tenant_id: tenantId,
                 client_id: session.user.id,
+                posted_by: session.user.id,
                 title,
-                skills,
-                budget,
+                role,
+                required_skills: skills,
+                experience_min,
+                experience_max,
+                salary_min,
+                salary_max,
                 status: 'open'
-            } as any) // Type assertion until types.ts is fully propagated/picked up
+            })
             .select()
             .single();
 

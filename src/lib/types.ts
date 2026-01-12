@@ -40,21 +40,21 @@ export interface Database {
                     id: string
                     tenant_id: string
                     email: string
-                    role: 'admin' | 'provider' | 'subscriber'
+                    role: 'admin' | 'provider' | 'subscriber' | 'super_admin'
                     created_at: string
                 }
                 Insert: {
                     id?: string
                     tenant_id: string
                     email: string
-                    role?: 'admin' | 'provider' | 'subscriber'
+                    role?: 'admin' | 'provider' | 'subscriber' | 'super_admin'
                     created_at?: string
                 }
                 Update: {
                     id?: string
                     tenant_id?: string
                     email?: string
-                    role?: 'admin' | 'provider' | 'subscriber'
+                    role?: 'admin' | 'provider' | 'subscriber' | 'super_admin'
                     created_at?: string
                 }
             }

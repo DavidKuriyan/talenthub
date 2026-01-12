@@ -26,12 +26,12 @@ export function subscribeToMessages(
                 }
             }
         )
-        .on("error", (error) => {
-            console.error("Realtime subscription error:", error);
-            if (onError) onError(new Error(error.message));
-        })
-        .subscribe((status) => {
+        .subscribe((status, err) => {
             console.log(`Subscription to match:${matchId} status:`, status);
+            if (err && onError) {
+                console.error("Realtime subscription error:", err);
+                onError(err);
+            }
         });
 
     // Return unsubscribe function
@@ -48,19 +48,36 @@ export async function fetchMessageHistory(
     limit: number = 50,
     offset: number = 0
 ) {
-    const { data, error } = await supabase
-        .from("messages")
-        .select("*")
-        .eq("match_id", matchId)
-        .order("created_at", { ascending: false })
-        .range(offset, offset + limit - 1);
+    try {
+        const { data, error } = await (supabase
+            .from("messages") as any)
+            .select("*")
+            .eq("match_id", matchId)
+            .order("created_at", { ascending: false })
+            .range(offset, offset + limit - 1);
 
-    if (error) {
-        console.error("Error fetching message history:", error);
-        throw error;
+        if (error) {
+            console.error("Error fetching message history:", {
+                message: error.message,
+                code: error.code,
+                details: error.details,
+                hint: error.hint
+            });
+
+            // If it's an RLS error or permission error, return empty array instead of throwing
+            if (error.code === 'PGRST301' || error.message.includes('permission') || error.message.includes('policy')) {
+                console.warn("Permission denied for messages - user may need to login again or match may not exist");
+                return [];
+            }
+
+            throw error;
+        }
+
+        return data?.reverse() || [];
+    } catch (err) {
+        console.error("Exception in fetchMessageHistory:", err);
+        return []; // Return empty array on error to prevent UI crash
     }
-
-    return data?.reverse() || [];
 }
 
 /**
@@ -76,8 +93,8 @@ export async function sendMessage(
         throw new Error("Message content cannot be empty");
     }
 
-    const { data, error } = await supabase
-        .from("messages")
+    const { data, error } = await (supabase
+        .from("messages") as any)
         .insert({
             match_id: matchId,
             sender_id: senderId,

@@ -105,13 +105,11 @@ export default function TenantLoginPage() {
 
             // Route based on role
             const role = signInData.user?.user_metadata?.role || signInData.user?.app_metadata?.role;
-            if (role === "admin") {
-                router.push("/admin");
-            } else if (role === "provider") {
-                router.push("/engineer/profile");
+            if (role === "provider") {
+                router.push("/engineer/dashboard");
             } else {
-                // Default to client dashboard for recruiters/subscribers
-                router.push("/client/dashboard");
+                // Default to organization dashboard for admins/recruiters in this portal
+                router.push("/organization/dashboard");
             }
             router.refresh();
         } catch (err: any) {
@@ -236,6 +234,12 @@ export default function TenantLoginPage() {
                 </div>
 
                 <div className="mt-6 text-center space-y-3">
+                    <Link
+                        href="/organization/register"
+                        className="text-purple-400 text-sm hover:text-white transition-colors block font-semibold"
+                    >
+                        🚀 Register Your Organization
+                    </Link>
                     <Link
                         href="/login"
                         className="text-indigo-400 text-sm hover:text-white transition-colors block"

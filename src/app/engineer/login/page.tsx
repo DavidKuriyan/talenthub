@@ -44,7 +44,7 @@ export default function EngineerLoginPage() {
                 if (defaultTenant) {
                     // Update user metadata with tenant_id
                     await supabase.auth.updateUser({
-                        data: { tenant_id: defaultTenant.id }
+                        data: { tenant_id: (defaultTenant as any).id }
                     });
                 }
             }

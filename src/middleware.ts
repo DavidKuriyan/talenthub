@@ -65,17 +65,37 @@ export async function middleware(request: NextRequest) {
         '/register',
         '/engineer/login',
         '/tenant/login',
+        '/organization/login',
+        '/organization/register',
         '/admin/login'
     ]
     const isAuthPage = publicAuthPages.some(page => url.pathname === page)
 
     if (!session && !isAuthPage) {
-        url.pathname = '/login'
+        // Context-aware login redirection
+        if (url.pathname.startsWith('/admin')) {
+            url.pathname = '/admin/login'
+        } else if (url.pathname.startsWith('/organization')) {
+            url.pathname = '/organization/login'
+        } else if (url.pathname.startsWith('/engineer')) {
+            url.pathname = '/engineer/login'
+        } else {
+            url.pathname = '/login'
+        }
         return NextResponse.redirect(url)
     }
 
     if (session && isAuthPage) {
-        url.pathname = '/products'
+        // Context-aware dashboard redirection after login
+        const role = session.user.app_metadata.role || session.user.user_metadata?.role
+
+        if (role === 'admin' || role === 'super_admin') {
+            url.pathname = '/admin'
+        } else if (role === 'provider') {
+            url.pathname = '/engineer/profile'
+        } else {
+            url.pathname = '/organization/dashboard'
+        }
         return NextResponse.redirect(url)
     }
 
@@ -83,11 +103,12 @@ export async function middleware(request: NextRequest) {
     if (session?.user) {
         const tenantId = session.user.app_metadata.tenant_id || 'talenthub'
 
-        // Basic path-based protection for /admin (except login page)
+        // Authorized role protection for /admin (except login page)
         if (url.pathname.startsWith('/admin') && url.pathname !== '/admin/login') {
             const role = session.user.app_metadata.role || session.user.user_metadata?.role
             if (role !== 'admin' && role !== 'super_admin') {
-                url.pathname = '/products'
+                // Not an admin? Send back to organization dashboard
+                url.pathname = '/organization/dashboard'
                 return NextResponse.redirect(url)
             }
         }

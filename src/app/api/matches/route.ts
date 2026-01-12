@@ -16,25 +16,28 @@ export async function POST(req: Request) {
 
         // 2. Fetch all Open Requirements (for current tenant if RLS enabled, or all if admin)
         // Note: RLS will filter this by tenant automatically if set up correctly.
-        const { data: requirements, error: reqError } = await supabase
+        const { data: reqsData, error: reqError } = await supabase
             .from("requirements")
             .select("*")
             .eq("status", "open");
 
         if (reqError) throw new Error("Failed to fetch requirements: " + reqError.message);
-        if (!requirements || requirements.length === 0) {
+        if (!reqsData || reqsData.length === 0) {
             return NextResponse.json({ message: "No open requirements found" });
         }
 
         // 3. Fetch all Profiles
-        const { data: profiles, error: profError } = await supabase
+        const { data: profsData, error: profError } = await supabase
             .from("profiles")
             .select("*");
 
         if (profError) throw new Error("Failed to fetch profiles: " + profError.message);
 
+        const requirements = (reqsData || []) as any[];
+        const profiles = (profsData || []) as any[];
+
         // 4. Run Matching Algorithm
-        const matchesToInsert = [];
+        const matchesToInsert: any[] = [];
 
         for (const req of requirements) {
             // Ensure schema compatibility (skills is JSONB, assumed string array)

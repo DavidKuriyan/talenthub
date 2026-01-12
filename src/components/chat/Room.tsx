@@ -89,7 +89,7 @@ export default function ChatRoom({
         if (!newMessage.trim()) return;
 
         try {
-            await sendMessageUtil(roomId, senderId, tenantId, newMessage);
+            await sendMessageUtil(roomId, senderId, newMessage);
             setNewMessage("");
             setError(null);
         } catch (err) {
@@ -119,7 +119,7 @@ export default function ChatRoom({
 
         try {
             const { url } = await uploadChatImage(file, tenantId, roomId);
-            await sendMessageUtil(roomId, senderId, tenantId, `[Image] ${url}`);
+            await sendMessageUtil(roomId, senderId, `[Image] ${url}`);
             if (fileInputRef.current) {
                 fileInputRef.current.value = "";
             }

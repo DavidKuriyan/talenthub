@@ -62,7 +62,7 @@ export default function SuperAdminLoginPage() {
 
             // Verify admin role
             const role = signInData.user?.user_metadata?.role || signInData.user?.app_metadata?.role;
-            if (role !== "admin") {
+            if (role !== "admin" && role !== "super_admin") {
                 await supabase.auth.signOut();
                 throw new Error("Access denied. Admin privileges required.");
             }

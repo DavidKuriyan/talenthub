@@ -1,0 +1,94 @@
+{
+  "total": 12,
+  "passed": 8,
+  "failed": 4,
+  "tests": {
+    "auth": [
+      {
+        "name": "Login with valid credentials",
+        "passed": true,
+        "details": "User ID: ae609eae...",
+        "timestamp": "2026-01-12T06:22:28.920Z"
+      },
+      {
+        "name": "Access token generated",
+        "passed": true,
+        "details": "Token: eyJhbGciOiJFUzI1NiIs...",
+        "timestamp": "2026-01-12T06:22:28.921Z"
+      },
+      {
+        "name": "User email verified",
+        "passed": true,
+        "details": "Email: davidkuriyan20@gmail.com",
+        "timestamp": "2026-01-12T06:22:28.922Z"
+      }
+    ],
+    "profile": [
+      {
+        "name": "Profile status",
+        "passed": true,
+        "details": "No profile found - ready to create",
+        "timestamp": "2026-01-12T06:22:29.018Z"
+      }
+    ],
+    "jobs": [
+      {
+        "name": "Profile required",
+        "passed": false,
+        "details": "No profile found",
+        "timestamp": "2026-01-12T06:22:29.106Z"
+      }
+    ],
+    "interviews": [
+      {
+        "name": "Fetch interviews",
+        "passed": false,
+        "details": "Status: 404",
+        "timestamp": "2026-01-12T06:22:29.209Z"
+      }
+    ],
+    "offers": [
+      {
+        "name": "Fetch offers",
+        "passed": false,
+        "details": "Status: 404",
+        "timestamp": "2026-01-12T06:22:29.300Z"
+      }
+    ],
+    "payments": [
+      {
+        "name": "Fetch payments",
+        "passed": false,
+        "details": "Status: 404",
+        "timestamp": "2026-01-12T06:22:29.394Z"
+      }
+    ],
+    "messages": [
+      {
+        "name": "Supabase Realtime available",
+        "passed": true,
+        "details": "Real-time channels configured",
+        "timestamp": "2026-01-12T06:22:29.404Z"
+      },
+      {
+        "name": "Message table schema",
+        "passed": true,
+        "details": "Messages table supports sender_id, content, timestamps",
+        "timestamp": "2026-01-12T06:22:29.405Z"
+      },
+      {
+        "name": "Chat UI implemented",
+        "passed": true,
+        "details": "Real-time chat at /engineer/messages",
+        "timestamp": "2026-01-12T06:22:29.406Z"
+      },
+      {
+        "name": "Message subscriptions",
+        "passed": true,
+        "details": "Postgres changes trigger real-time updates",
+        "timestamp": "2026-01-12T06:22:29.407Z"
+      }
+    ]
+  },
+  "timestamp": "2026-01-12T06:22:28.381Z"
+}

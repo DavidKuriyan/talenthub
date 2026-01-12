@@ -143,3 +143,37 @@
 [2026-01-10T03:21:40.560Z] 💳 Checkout API called
 [2026-01-10T03:21:40.637Z] 📦 Processing order for 1 items, Total: 900000
 [2026-01-10T03:21:40.666Z] ❌ Unauthorized attempt
+[2026-01-10T10:01:28.279Z] 💳 Checkout API called
+[2026-01-10T10:01:28.291Z] 📦 Processing order for 1 items, Total: 1000000
+[2026-01-10T10:01:28.405Z] 🔍 Resolving tenant slug: talenthub
+[2026-01-10T10:01:28.689Z] ✅ Resolved Tenant ID: 930e6f70-f5cb-41be-84d2-4e5e31f1864e
+[2026-01-10T10:01:28.692Z] 🔄 Creating Razorpay Order...
+[2026-01-10T10:01:29.001Z] ❌ Razorpay API Error: {"statusCode":401,"error":{"code":"BAD_REQUEST_ERROR","description":"Authentication failed"}}
+[2026-01-10T10:01:32.620Z] 💳 Checkout API called
+[2026-01-10T10:01:32.625Z] 📦 Processing order for 1 items, Total: 1000000
+[2026-01-10T10:01:32.647Z] 🔍 Resolving tenant slug: talenthub
+[2026-01-10T10:01:32.730Z] ✅ Resolved Tenant ID: 930e6f70-f5cb-41be-84d2-4e5e31f1864e
+[2026-01-10T10:01:32.732Z] 🔄 Creating Razorpay Order...
+[2026-01-10T10:01:32.794Z] ❌ Razorpay API Error: {"statusCode":401,"error":{"code":"BAD_REQUEST_ERROR","description":"Authentication failed"}}
+[2026-01-10T10:01:35.184Z] 💳 Checkout API called
+[2026-01-10T10:01:35.190Z] 📦 Processing order for 1 items, Total: 1000000
+[2026-01-10T10:01:35.213Z] 🔍 Resolving tenant slug: talenthub
+[2026-01-10T10:01:35.288Z] ✅ Resolved Tenant ID: 930e6f70-f5cb-41be-84d2-4e5e31f1864e
+[2026-01-10T10:01:35.291Z] 🔄 Creating Razorpay Order...
+[2026-01-10T10:01:35.402Z] ❌ Razorpay API Error: {"statusCode":401,"error":{"code":"BAD_REQUEST_ERROR","description":"Authentication failed"}}
+[2026-01-10T10:01:37.903Z] 💳 Checkout API called
+[2026-01-10T10:01:37.907Z] 📦 Processing order for 1 items, Total: 1000000
+[2026-01-10T10:01:37.926Z] 🔍 Resolving tenant slug: talenthub
+[2026-01-10T10:01:37.999Z] ✅ Resolved Tenant ID: 930e6f70-f5cb-41be-84d2-4e5e31f1864e
+[2026-01-10T10:01:38.003Z] 🔄 Creating Razorpay Order...
+[2026-01-10T10:01:38.059Z] ❌ Razorpay API Error: {"statusCode":401,"error":{"code":"BAD_REQUEST_ERROR","description":"Authentication failed"}}
+[2026-01-10T10:04:05.098Z] 💳 Checkout API called
+[2026-01-10T10:04:05.106Z] 📦 Processing order for 1 items, Total: 900000
+[2026-01-10T10:04:05.197Z] 🔍 Resolving tenant slug: talenthub
+[2026-01-10T10:04:06.630Z] ✅ Resolved Tenant ID: 930e6f70-f5cb-41be-84d2-4e5e31f1864e
+[2026-01-10T10:04:06.634Z] 🔄 Creating Razorpay Order...
+[2026-01-10T10:04:06.974Z] ❌ Razorpay API Error: {"statusCode":401,"error":{"code":"BAD_REQUEST_ERROR","description":"Authentication failed"}}
+[2026-01-12T06:54:04.597Z] 💳 Checkout API called
+[2026-01-12T06:54:04.601Z] 📦 Processing order for 1 items, Total: 800000
+[2026-01-12T06:54:04.619Z] 🔄 Creating Razorpay Order...
+[2026-01-12T06:54:04.936Z] ❌ Razorpay API Error: {"statusCode":401,"error":{"description":"Authentication failed","code":"BAD_REQUEST_ERROR"}}

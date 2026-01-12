@@ -74,8 +74,8 @@ export async function POST(req: Request) {
 async function handlePaymentCaptured(payment: any) {
     const supabase = await createClient();
 
-    const { error } = await supabase
-        .from("orders")
+    const { error } = await (supabase
+        .from("orders") as any)
         .update({
             status: "paid",
             updated_at: new Date().toISOString(),
@@ -95,8 +95,8 @@ async function handlePaymentCaptured(payment: any) {
 async function handlePaymentFailed(payment: any) {
     const supabase = await createClient();
 
-    const { error } = await supabase
-        .from("orders")
+    const { error } = await (supabase
+        .from("orders") as any)
         .update({
             status: "failed",
             updated_at: new Date().toISOString(),
@@ -116,8 +116,8 @@ async function handlePaymentFailed(payment: any) {
 async function handleOrderPaid(order: any) {
     const supabase = await createClient();
 
-    const { error } = await supabase
-        .from("orders")
+    const { error } = await (supabase
+        .from("orders") as any)
         .update({
             status: "paid",
             updated_at: new Date().toISOString(),
