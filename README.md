@@ -254,7 +254,7 @@ vercel --prod
 - **Components:** 15+
 - **Lines of Code:** 4000+
 - **Features:** 15
-- **Completion:** 90%
+- **Completion:** 92%
 
 ---
 
@@ -304,7 +304,7 @@ MIT License - See LICENSE file for details
 
 **Built with ❤️ for seamless recruitment**
 
-  Test Organization Acciunt- 
+  Test Organization Account- 
   Organization Name: "TalentHub Recruitment"
    - Admin Email: "admin@talenthub.com"
    - Your Role: Keep default (Admin)

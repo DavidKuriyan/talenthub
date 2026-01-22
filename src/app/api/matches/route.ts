@@ -70,13 +70,15 @@ export async function POST(req: Request) {
             }
         }
 
-        // 5. Bulk Insert Matches
+        // 5. Bulk Upsert Matches
         if (matchesToInsert.length > 0) {
             const { error: matchError } = await supabase
                 .from("matches")
-                .insert(matchesToInsert as any);
+                .upsert(matchesToInsert as any, {
+                    onConflict: 'requirement_id,profile_id'
+                });
 
-            if (matchError) throw new Error("Match insert failed: " + matchError.message);
+            if (matchError) throw new Error("Match upsert failed: " + matchError.message);
         }
 
         return NextResponse.json({

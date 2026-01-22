@@ -277,10 +277,13 @@ export async function logAdminAction(
  */
 async function getClientIpAddress(): Promise<string | null> {
     try {
-        const response = await fetch("https://api.ipify.org?format=json");
+        if (typeof window === 'undefined') return null;
+        const response = await fetch("https://api.ipify.org?format=json", { cache: 'no-store' });
+        if (!response.ok) return null;
         const data = await response.json();
         return data.ip;
-    } catch {
+    } catch (err) {
+        console.warn("Could not fetch client IP:", err);
         return null;
     }
 }
