@@ -134,9 +134,10 @@ export default function EngineerProfilePage() {
             setIsEditing(false);
             router.refresh();
 
-        } catch (err: any) {
-            console.error("Save Error:", err);
-            setMessage({ type: 'error', text: err.message || "An unexpected error occurred" });
+        } catch (err: unknown) {
+            const error = err as Error;
+            console.error("Save Error:", error);
+            setMessage({ type: 'error', text: error.message || "An unexpected error occurred" });
         } finally {
             setSaving(false);
         }
@@ -238,7 +239,7 @@ export default function EngineerProfilePage() {
                                     </div>
                                 )}
                                 <p className="text-[10px] text-emerald-600 dark:text-emerald-400 mt-4 font-black uppercase tracking-widest">
-                                    {profileData.skills.length} technical skill{profileData.skills.length !== 1 ? 's' : ''} verified
+                                    {profileData.skills.length} technical skill{profileData.skills.length !== 1 ? "s" : ""} verified
                                 </p>
                             </div>
 
@@ -303,7 +304,7 @@ export default function EngineerProfilePage() {
                                     <span className="text-3xl">📍</span>
                                     <div>
                                         <h2 className="text-2xl font-black text-zinc-900 dark:text-zinc-50 tracking-tight">Location Details</h2>
-                                        <p className="text-sm text-zinc-500 font-medium">Where you're based</p>
+                                        <p className="text-sm text-zinc-500 font-medium">Where you&apos;re based</p>
                                     </div>
                                 </div>
 

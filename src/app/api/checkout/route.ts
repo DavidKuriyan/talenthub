@@ -18,7 +18,7 @@ function log(message: string) {
     console.log(message);
     try {
         fs.appendFileSync(LOG_FILE, logMessage);
-    } catch (e) {
+    } catch (_e) {
         // Ignore file write errors
     }
 }
@@ -64,8 +64,8 @@ export async function POST(req: Request) {
 
         const userId = session.user.id;
 
-        // Resolve tenant_id: check if metadata has it, else lookup by slug 'talenthub'
-        let tenantId = session.user.app_metadata.tenant_id;
+        // Resolve tenant_id: check if metadata has it
+        let tenantId = (session.user.app_metadata as any).tenant_id || (session.user.user_metadata as any).tenant_id;
 
         // If no tenant_id or it's not a UUID (e.g. might be a slug from old logic), resolve it
         const isUuid = (str: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
@@ -81,7 +81,7 @@ export async function POST(req: Request) {
                 .single();
 
             if (tenant) {
-                tenantId = (tenant as any).id;
+                tenantId = (tenant as { id: string }).id;
                 log(`✅ Resolved Tenant ID: ${tenantId}`);
             } else {
                 log(`❌ Tenant not found for slug: ${slug}`);
@@ -94,7 +94,7 @@ export async function POST(req: Request) {
 
         // Validate total matches items (prevent tampering)
         const calculatedTotal = items.reduce(
-            (sum: number, item: any) => sum + (item.price * item.quantity),
+            (sum: number, item: { price: number; quantity: number }) => sum + (item.price * item.quantity),
             0
         );
 
@@ -141,7 +141,7 @@ export async function POST(req: Request) {
             if (orderError) {
                 log(`❌ Database Insert Error: ${orderError.message}`);
                 return NextResponse.json(
-                    { error: `Database Error: ${orderError.message}` },
+                    { success: false, error: "Database error", details: orderError.message },
                     { status: 500 }
                 );
             }
@@ -152,16 +152,22 @@ export async function POST(req: Request) {
                 orderId: (order as any).id,
             });
 
-        } catch (rpError: any) {
-            log(`❌ Razorpay API Error: ${rpError.message || JSON.stringify(rpError)}`);
+        } catch (rpError: unknown) {
+            const error = rpError as any;
+            log(`❌ Razorpay API Error: ${error.message || JSON.stringify(error)}`);
             return NextResponse.json(
-                { error: `Payment Gateway Error: ${rpError.message || rpError.error?.description}` },
+                { success: false, error: "Payment gateway error", details: error.message || error.error?.description },
                 { status: 500 }
             );
         }
 
-    } catch (error: any) {
+    } catch (e: unknown) {
+        const error = e as Error;
         log(`❌ Unexpected Checkout Error: ${error.message}`);
-        return NextResponse.json({ error: `Unexpected Error: ${error.message}` }, { status: 500 });
+        console.error("Checkout POST Error:", error);
+        return NextResponse.json(
+            { success: false, error: "Unexpected checkout error", details: error.message },
+            { status: 500 }
+        );
     }
 }

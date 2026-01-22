@@ -10,7 +10,7 @@ export async function POST(req: Request) {
         const supabase = await createClient();
         const { matchId, engineerId } = await req.json();
 
-        if (!matchId || !engineerId) return NextResponse.json({ error: "Missing data" }, { status: 400 });
+        if (!matchId || !engineerId) return NextResponse.json({ success: false, error: "Missing data" }, { status: 400 });
 
         // 1. Update match status
         const { error: matchError } = await (supabase.from("matches") as any)
@@ -30,7 +30,13 @@ export async function POST(req: Request) {
         // (Optional: will implement if notifications table exists)
 
         return NextResponse.json({ success: true });
-    } catch (err: any) {
-        return NextResponse.json({ error: err.message }, { status: 500 });
+    } catch (e: unknown) {
+        const error = e as Error;
+        console.error("Recruit POST Error:", error);
+        return NextResponse.json(
+            { success: false, error: "Internal server error", details: error.message },
+            { status: 500 }
+        );
     }
 }
+

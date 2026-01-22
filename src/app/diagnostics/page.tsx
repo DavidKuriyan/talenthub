@@ -22,12 +22,12 @@ interface TenantRecord {
  * @aiNote Tool for users to verify their registration and tenant status without browser agent assistance.
  */
 export default function DiagnosticsPage() {
-    const [results, setResults] = useState<any[]>([]);
+    const [results, setResults] = useState<{ name: string, status: string, detail: string }[]>([]);
     const [loading, setLoading] = useState(false);
 
     const runDiagnostics = async () => {
         setLoading(true);
-        const checks = [];
+        const checks: { name: string, status: string, detail: string }[] = [];
 
         // 1. Auth Session
         const { data: { session } } = await supabase.auth.getSession();
@@ -39,11 +39,12 @@ export default function DiagnosticsPage() {
 
         if (session) {
             // 2. Metadata Check
-            const metadata = session.user.user_metadata;
+            const metadata = session.user.user_metadata || {};
+            const tenant_id = metadata.tenant_id;
             checks.push({
                 name: "User Metadata",
-                status: metadata.tenant_id ? "Valid" : "Incomplete",
-                detail: `Tenant ID: ${metadata.tenant_id || "MISSING"}, Role: ${metadata.role || "MISSING"}`
+                status: tenant_id ? "Valid" : "Incomplete",
+                detail: `Tenant ID: ${tenant_id || "MISSING"}, Role: ${metadata.role || "MISSING"}`
             });
 
             // 3. User Table Sync
@@ -51,26 +52,30 @@ export default function DiagnosticsPage() {
                 .from("users")
                 .select("*")
                 .eq("id", session.user.id)
-                .maybeSingle() as { data: UserRecord | null };
+                .maybeSingle();
+
+            const typedUser = userRecord as UserRecord | null;
 
             checks.push({
                 name: "Public User Table Sync",
-                status: userRecord ? "Synced" : "Missing",
-                detail: userRecord ? `Role: ${userRecord.role}` : "No record found in public.users"
+                status: typedUser ? "Synced" : "Missing",
+                detail: typedUser ? `Role: ${typedUser.role}` : "No record found in public.users"
             });
 
             // 4. Tenant Verification
-            if (metadata.tenant_id) {
+            if (tenant_id) {
                 const { data: tenant } = await supabase
                     .from("tenants")
                     .select("*")
-                    .eq("id", metadata.tenant_id)
-                    .maybeSingle() as { data: TenantRecord | null };
+                    .eq("id", tenant_id)
+                    .maybeSingle();
+
+                const typedTenant = tenant as TenantRecord | null;
 
                 checks.push({
                     name: "Tenant Existence",
-                    status: tenant ? "Found" : "Not Found",
-                    detail: tenant ? `Name: ${tenant.name}, Active: ${tenant.is_active}` : `Tenant ${metadata.tenant_id} not in DB`
+                    status: typedTenant ? "Found" : "Not Found",
+                    detail: typedTenant ? `Name: ${typedTenant.name}, Active: ${typedTenant.is_active}` : `Tenant ${tenant_id} not in DB`
                 });
             }
         }

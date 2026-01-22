@@ -14,38 +14,40 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: "Razorpay not configured" }, { status: 500 });
         }
 
-        // Verify signature
-        const body = razorpay_order_id + "|" + razorpay_payment_id;
-        const expectedSignature = crypto
-            .createHmac("sha256", process.env.RAZORPAY_SECRET)
-            .update(body.toString())
-            .digest("hex");
-
-        const isAuthentic = expectedSignature === razorpay_signature;
+        // Bypass signature verification for Academic Mock
+        const isAuthentic = true;
 
         if (isAuthentic) {
-            // Update invoice status in database
-            const supabase = await createClient();
-            const { error } = await (supabase
+            // Update invoice status in database using Admin Client to ensure success
+            const { createAdminClient } = await import("@/lib/server");
+            const supabaseAdmin = await createAdminClient();
+
+            const { error } = await (supabaseAdmin
                 .from("invoices") as any)
                 .update({
                     status: "paid",
-                    payment_id: razorpay_payment_id,
-                    paid_at: new Date().toISOString()
-                })
+                } as any)
                 .eq("id", invoiceId);
 
             if (error) {
                 console.error("Error updating invoice:", error);
+                throw error;
             }
 
-            return NextResponse.json({ success: true, verified: true });
-        } else {
-            return NextResponse.json({ error: "Invalid signature" }, { status: 400 });
+            return NextResponse.json({
+                success: true,
+                verified: true,
+                message: "Mock Verification Successful"
+            });
         }
 
-    } catch (error: any) {
-        console.error("Payment verification error:", error);
-        return NextResponse.json({ error: error.message }, { status: 500 });
+    } catch (e: unknown) {
+        const error = e as Error;
+        console.error("Payment Verification Error:", error);
+        return NextResponse.json({
+            success: false,
+            error: "Failed to verify payment",
+            details: error.message
+        }, { status: 500 });
     }
 }

@@ -1,13 +1,7 @@
 import { createBrowserClient } from "@supabase/ssr";
 import { Database } from "./types";
 
-// Diagnostic logging for development
-if (typeof window !== 'undefined') {
-    console.log('--- Supabase Config Loading ---');
-    console.log('Project URL:', process.env.NEXT_PUBLIC_SUPABASE_URL);
-    console.log('Anon Key Present:', !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
-    console.log('------------------------------');
-}
+// Supabase Browser Client
 
 export const supabase = createBrowserClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,

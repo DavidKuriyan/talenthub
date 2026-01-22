@@ -108,7 +108,7 @@ export default function ClientInterviewsPage() {
                     jitsi_room_id: jitsiRoomId,
                     notes: notes,
                     status: "scheduled"
-                });
+                } as any);
 
             if (error) throw error;
 

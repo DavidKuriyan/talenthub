@@ -1,23 +1,49 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { supabase } from "@/lib/supabase";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 
-/**
- * @feature MATCHING_PAGE
- * @aiNote View and create engineer-to-job matches. Converted to Client Component to handle interactivity.
- */
-export default function MatchingPage() {
+interface Requirement {
+    id: string;
+    title: string;
+    role: string;
+    required_skills: string[];
+    experience_min: number;
+    experience_max: number;
+    salary_min: number;
+    salary_max: number;
+    status: string;
+    tenant_id: string;
+}
+
+interface EngineerProfile {
+    id: string;
+    full_name: string;
+    skills: string[];
+    experience_years: number;
+    tenant_id: string;
+}
+
+interface Match {
+    id: string;
+    requirement_id: string;
+    engineer_id: string;
+    score: number;
+    status: string;
+    profiles?: EngineerProfile;
+}
+
+function MatchingContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const requirementId = searchParams.get("requirement_id");
 
-    const [requirements, setRequirements] = useState<any[]>([]);
-    const [engineers, setEngineers] = useState<any[]>([]);
-    const [matches, setMatches] = useState<any[]>([]);
-    const [selectedRequirement, setSelectedRequirement] = useState<any>(null);
+    const [requirements, setRequirements] = useState<Requirement[]>([]);
+    const [engineers, setEngineers] = useState<EngineerProfile[]>([]);
+    const [matches, setMatches] = useState<Match[]>([]);
+    const [selectedRequirement, setSelectedRequirement] = useState<Requirement | null>(null);
     const [loading, setLoading] = useState(true);
     const [tenantId, setTenantId] = useState<string | null>(null);
 
@@ -51,18 +77,18 @@ export default function MatchingPage() {
                 .eq("tenant_id", tid)
                 .eq("status", "open")
                 .order("created_at", { ascending: false });
-            setRequirements(reqs || []);
+            setRequirements(reqs as Requirement[] || []);
 
             // Fetch engineers
             const { data: engs } = await supabase
                 .from("profiles")
                 .select("*")
                 .eq("tenant_id", tid);
-            setEngineers(engs || []);
+            setEngineers(engs as EngineerProfile[] || []);
 
             // If requirement selected, fetch matches
             if (requirementId) {
-                const selected = reqs?.find((r: any) => r.id === requirementId);
+                const selected = (reqs as Requirement[] | null)?.find((r: Requirement) => r.id === requirementId);
                 setSelectedRequirement(selected || null);
 
                 const { data: exMatches } = await supabase
@@ -72,7 +98,7 @@ export default function MatchingPage() {
                         profiles:engineer_id (*)
                     `)
                     .eq("requirement_id", requirementId);
-                setMatches(exMatches || []);
+                setMatches(exMatches as unknown as Match[] || []);
             } else {
                 setSelectedRequirement(null);
                 setMatches([]);
@@ -101,7 +127,7 @@ export default function MatchingPage() {
                     engineer_id: engineerId,
                     score: score,
                     status: 'pending'
-                });
+                } as any);
             if (error) throw error;
             fetchData(tenantId!);
         } catch (error) {
@@ -160,7 +186,7 @@ export default function MatchingPage() {
                         className="w-full px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white font-medium"
                     >
                         <option value="">-- Select a requirement --</option>
-                        {requirements.map((req: any) => (
+                        {requirements.map((req: Requirement) => (
                             <option key={req.id} value={req.id}>
                                 {req.title} ({req.role})
                             </option>
@@ -214,7 +240,7 @@ export default function MatchingPage() {
                                 </h3>
                                 {matches.length > 0 ? (
                                     <div className="space-y-3">
-                                        {matches.map((match: any) => (
+                                        {matches.map((match: Match) => (
                                             <div key={match.id} className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-100 dark:border-slate-700">
                                                 <div className="flex flex-col">
                                                     <span className="text-sm font-bold text-slate-900 dark:text-white">
@@ -256,7 +282,7 @@ export default function MatchingPage() {
                             </h2>
                             {engineers.length > 0 ? (
                                 <div className="space-y-4 max-h-[700px] overflow-y-auto pr-2 custom-scrollbar">
-                                    {engineers.map((engineer: any) => {
+                                    {engineers.map((engineer: EngineerProfile) => {
                                         const matchingSkills = engineer.skills?.filter((s: string) =>
                                             selectedRequirement.required_skills?.includes(s)
                                         ) || [];
@@ -267,7 +293,7 @@ export default function MatchingPage() {
                                         const experienceMatch = engineer.experience_years >= selectedRequirement.experience_min &&
                                             engineer.experience_years <= selectedRequirement.experience_max;
 
-                                        const isAlreadyMatched = matches.some((m: any) => m.engineer_id === engineer.id);
+                                        const isAlreadyMatched = matches.some((m: Match) => m.engineer_id === engineer.id);
 
                                         return (
                                             <div key={engineer.id} className={`p-4 rounded-2xl border transition-all ${isAlreadyMatched ? 'opacity-60 bg-slate-50/50 dark:bg-slate-900/50 border-slate-100 dark:border-slate-800' : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 hover:border-indigo-500/50 shadow-sm'}`}>
@@ -351,7 +377,34 @@ export default function MatchingPage() {
                     </div>
                 )}
             </div>
+
+            <style jsx>{`
+                .custom-scrollbar::-webkit-scrollbar {
+                    width: 4px;
+                }
+                .custom-scrollbar::-webkit-scrollbar-track {
+                    background: transparent;
+                }
+                .custom-scrollbar::-webkit-scrollbar-thumb {
+                    background: rgba(255, 255, 255, 0.05);
+                    border-radius: 10px;
+                }
+                .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+                    background: rgba(255, 255, 255, 0.1);
+                }
+            `}</style>
         </div>
     );
 }
 
+export default function MatchingPage() {
+    return (
+        <Suspense fallback={
+            <div className="min-h-screen bg-black flex items-center justify-center">
+                <div className="w-8 h-8 border-2 border-indigo-500/30 border-t-indigo-500 rounded-full animate-spin"></div>
+            </div>
+        }>
+            <MatchingContent />
+        </Suspense>
+    );
+}

@@ -13,7 +13,7 @@ export async function GET(req: NextRequest) {
         const { data: { session } } = await supabase.auth.getSession();
 
         if (!session?.user) {
-            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+            return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
         }
 
         const tenantId = session.user.user_metadata?.tenant_id || session.user.app_metadata?.tenant_id;
@@ -32,8 +32,12 @@ export async function GET(req: NextRequest) {
         if (error) throw error;
 
         return NextResponse.json(data);
-    } catch (err: any) {
-        return NextResponse.json({ error: err.message }, { status: 500 });
+    } catch (err: unknown) {
+        const error = err as Error;
+        return NextResponse.json(
+            { success: false, error: "Invoice operation failed", details: error.message },
+            { status: 500 }
+        );
     }
 }
 
@@ -44,7 +48,7 @@ export async function POST(req: NextRequest) {
         const { data: { session } } = await supabase.auth.getSession();
 
         if (!session?.user) {
-            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+            return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
         }
 
         const body = await req.json();
@@ -56,8 +60,8 @@ export async function POST(req: NextRequest) {
 
         const tenantId = session.user.user_metadata?.tenant_id || session.user.app_metadata?.tenant_id;
 
-        const { data, error } = await (supabase
-            .from("invoices") as any)
+        const { data, error } = await supabase
+            .from("invoices")
             .insert({
                 tenant_id: tenantId,
                 match_id,
@@ -65,15 +69,20 @@ export async function POST(req: NextRequest) {
                 amount,
                 status: "pending",
                 due_date: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString() // 15 days from now
-            })
+            } as any)
             .select()
             .single();
 
         if (error) throw error;
 
         return NextResponse.json(data);
-    } catch (err: any) {
-        return NextResponse.json({ error: err.message }, { status: 500 });
+    } catch (err: unknown) {
+        const error = err as Error;
+        console.error("Invoice POST Error:", error);
+        return NextResponse.json(
+            { success: false, error: "Invoice operation failed", details: error.message },
+            { status: 500 }
+        );
     }
 }
 
@@ -84,7 +93,7 @@ export async function PATCH(req: NextRequest) {
         const { data: { session } } = await supabase.auth.getSession();
 
         if (!session?.user) {
-            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+            return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
         }
 
         const body = await req.json();
@@ -109,7 +118,11 @@ export async function PATCH(req: NextRequest) {
         if (error) throw error;
 
         return NextResponse.json(data);
-    } catch (err: any) {
-        return NextResponse.json({ error: err.message }, { status: 500 });
+    } catch (err: unknown) {
+        const error = err as Error;
+        return NextResponse.json(
+            { success: false, error: "Invoice operation failed", details: error.message },
+            { status: 500 }
+        );
     }
 }

@@ -12,7 +12,10 @@ export async function POST(req: Request) {
 
         // 1. Authorization (Admin only ideally, or anyone for demo)
         const { data: { session } } = await supabase.auth.getSession();
-        if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+        if (!session?.user) return NextResponse.json({
+            success: false,
+            error: "Unauthorized"
+        }, { status: 401 });
 
         // 2. Fetch all Open Requirements (for current tenant if RLS enabled, or all if admin)
         // Note: RLS will filter this by tenant automatically if set up correctly.
@@ -87,7 +90,13 @@ export async function POST(req: Request) {
             details: matchesToInsert.map(m => ({ req: m.requirement_id, score: m.score }))
         });
 
-    } catch (e: any) {
-        return NextResponse.json({ error: e.message }, { status: 500 });
+    } catch (e: unknown) {
+        const error = e as Error;
+        console.error("Matching Algorithm Error:", error);
+        return NextResponse.json({
+            success: false,
+            error: "Failed to run matching algorithm",
+            details: error.message
+        }, { status: 500 });
     }
 }

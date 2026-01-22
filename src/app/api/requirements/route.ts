@@ -55,18 +55,24 @@ export async function POST(req: Request) {
                 salary_min,
                 salary_max,
                 status: 'open'
-            })
+            } as any)
             .select()
             .single();
 
         if (error) {
             console.error("Requirement Insert Error:", error);
-            return NextResponse.json({ error: error.message }, { status: 500 });
+            return NextResponse.json({ success: false, error: error.message }, { status: 500 });
         }
 
         return NextResponse.json(data);
 
-    } catch (e: any) {
-        return NextResponse.json({ error: e.message }, { status: 500 });
+    } catch (e: unknown) {
+        const error = e as Error;
+        console.error("Requirement POST Error:", error);
+        return NextResponse.json(
+            { success: false, error: "Internal server error", details: error.message },
+            { status: 500 }
+        );
     }
 }
+

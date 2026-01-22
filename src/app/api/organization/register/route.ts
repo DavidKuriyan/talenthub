@@ -1,4 +1,4 @@
-import { createClient as createSupabaseClient } from "@supabase/supabase-js";
+import { createAdminClient } from "@/lib/server";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
@@ -18,23 +18,7 @@ const registrationSchema = z.object({
  */
 export async function POST(req: Request) {
     try {
-        // Use service role key for admin operations
-        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-        const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-        if (!serviceRoleKey) {
-            console.error("SUPABASE_SERVICE_ROLE_KEY not configured");
-            return NextResponse.json({
-                error: "Server configuration error. Please contact administrator."
-            }, { status: 500 });
-        }
-
-        const supabaseAdmin = createSupabaseClient(supabaseUrl, serviceRoleKey, {
-            auth: {
-                autoRefreshToken: false,
-                persistSession: false
-            }
-        });
+        const supabaseAdmin = await createAdminClient();
 
         const body = await req.json();
 
@@ -56,8 +40,8 @@ export async function POST(req: Request) {
         }
 
         // Check if slug already exists
-        const { data: existingTenant } = await supabaseAdmin
-            .from("tenants")
+        const { data: existingTenant } = await (supabaseAdmin
+            .from("tenants") as any)
             .select("id")
             .eq("slug", slug)
             .single();
@@ -69,8 +53,8 @@ export async function POST(req: Request) {
         }
 
         // Create tenant
-        const { data: tenant, error: tenantError } = await supabaseAdmin
-            .from("tenants")
+        const { data: tenant, error: tenantError } = await (supabaseAdmin
+            .from("tenants") as any)
             .insert({
                 name: organizationName,
                 slug: slug,
@@ -90,7 +74,7 @@ export async function POST(req: Request) {
             password: password,
             email_confirm: true, // Auto-confirm email
             user_metadata: {
-                tenant_id: tenant.id,
+                tenant_id: (tenant as any).id,
                 role: "admin",
                 industry: industry
             }
@@ -100,7 +84,7 @@ export async function POST(req: Request) {
             console.error("User creation error:", authError);
 
             // Rollback: delete the tenant
-            await supabaseAdmin.from("tenants").delete().eq("id", tenant.id);
+            await (supabaseAdmin.from("tenants") as any).delete().eq("id", (tenant as any).id);
 
             // Provide more helpful error message
             if (authError.message.includes('already been registered')) {
@@ -115,11 +99,11 @@ export async function POST(req: Request) {
         }
 
         // Create user record in public.users table (Using upsert to handle potential trigger overlaps)
-        const { error: userInsertError } = await supabaseAdmin
-            .from("users")
+        const { error: userInsertError } = await (supabaseAdmin
+            .from("users") as any)
             .upsert({
                 id: authData.user.id,
-                tenant_id: tenant.id,
+                tenant_id: (tenant as any).id,
                 email: adminEmail,
                 role: "admin"
             }, {
@@ -133,7 +117,7 @@ export async function POST(req: Request) {
             // Note: In high-traffic scenarios, manual rollbacks like this are risky.
             // Using a DB function for registration would be more atomic.
             await supabaseAdmin.auth.admin.deleteUser(authData.user.id);
-            await supabaseAdmin.from("tenants").delete().eq("id", tenant.id);
+            await (supabaseAdmin.from("tenants") as any).delete().eq("id", (tenant as any).id);
 
             return NextResponse.json({
                 error: "Failed to initialize your user account record. Please try again or contact support."
@@ -143,9 +127,9 @@ export async function POST(req: Request) {
         return NextResponse.json({
             success: true,
             tenant: {
-                id: tenant.id,
-                name: tenant.name,
-                slug: tenant.slug
+                id: (tenant as any).id,
+                name: (tenant as any).name,
+                slug: (tenant as any).slug
             },
             user: {
                 id: authData.user.id,
@@ -154,7 +138,11 @@ export async function POST(req: Request) {
         });
 
     } catch (e: any) {
-        console.error("Registration error:", e);
-        return NextResponse.json({ error: e.message }, { status: 500 });
+        console.error("Organization Registration Error:", e);
+        return NextResponse.json({
+            success: false,
+            error: "Registration failed",
+            details: e.message
+        }, { status: 500 });
     }
 }

@@ -23,8 +23,14 @@ export async function POST(req: Request) {
         if (error) throw error;
 
         return NextResponse.json({ success: true, ticket: data });
-    } catch (err: any) {
-        return NextResponse.json({ error: err.message }, { status: 500 });
+    } catch (e: unknown) {
+        const error = e as Error;
+        console.error("Support POST Error:", error);
+        return NextResponse.json({
+            success: false,
+            error: "Failed to submit ticket",
+            details: error.message
+        }, { status: 500 });
     }
 }
 
@@ -43,6 +49,11 @@ export async function GET(req: Request) {
 
         return NextResponse.json({ success: true, tickets: data });
     } catch (err: any) {
-        return NextResponse.json({ error: err.message }, { status: 500 });
+        console.error("Support GET Error:", err);
+        return NextResponse.json({
+            success: false,
+            error: "Failed to fetch tickets",
+            details: err.message
+        }, { status: 500 });
     }
 }

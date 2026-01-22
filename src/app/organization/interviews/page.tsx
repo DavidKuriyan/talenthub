@@ -1,20 +1,30 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { supabase } from "@/lib/supabase";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import JitsiMeeting from "@/components/video/JitsiMeeting";
 
-/**
- * @feature ORGANIZATION_INTERVIEWS
- * @aiNote Portal for organizations to manage and join scheduled video interviews.
- */
-export default function OrganizationInterviewsPage() {
-    const [interviews, setInterviews] = useState<any[]>([]);
+interface Interview {
+    id: string;
+    match_id: string;
+    scheduled_at: string;
+    jitsi_room_id: string;
+    status: string;
+    notes?: string;
+    matches?: {
+        id: string;
+        requirements?: { title: string };
+        profiles?: { user_id: string };
+    };
+}
+
+function InterviewsContent() {
+    const [interviews, setInterviews] = useState<Interview[]>([]);
     const [loading, setLoading] = useState(true);
-    const [selectedInterview, setSelectedInterview] = useState<any>(null);
-    const [user, setUser] = useState<any>(null);
+    const [selectedInterview, setSelectedInterview] = useState<Interview | null>(null);
+    const [user, setUser] = useState<any>(null); // Keeping user as any due to complex Supabase User type
     const router = useRouter();
     const searchParams = useSearchParams();
     const filterMatchId = searchParams.get("matchId");
@@ -54,14 +64,15 @@ export default function OrganizationInterviewsPage() {
             const { data, error } = await query;
 
             if (error) throw error;
-            setInterviews(data || []);
+            setInterviews(data as unknown as Interview[] || []);
 
             // Auto-select if a matchId is provided and an interview exists
             if (filterMatchId && data && data.length > 0) {
                 setSelectedInterview(data[0]);
             }
 
-        } catch (error: any) {
+        } catch (e: unknown) {
+            const error = e as Error;
             console.error("Error fetching interviews:", JSON.stringify(error, null, 2));
         } finally {
             setLoading(false);
@@ -83,14 +94,14 @@ export default function OrganizationInterviewsPage() {
                     scheduled_at: new Date(Date.now() + 3600000).toISOString(), // 1 hour from now
                     jitsi_room_id: roomId,
                     status: 'scheduled'
-                })
+                } as any)
                 .select()
                 .single();
 
             if (error) throw error;
 
-            setInterviews(prev => [data, ...prev]);
-            setSelectedInterview(data);
+            setInterviews(prev => [data as unknown as Interview, ...prev]);
+            setSelectedInterview(data as unknown as Interview);
         } catch (error) {
             console.error("Error creating interview:", error);
         }
@@ -136,7 +147,7 @@ export default function OrganizationInterviewsPage() {
                                     No interviews scheduled
                                 </div>
                             ) : (
-                                interviews.map((int) => (
+                                interviews.map((int: Interview) => (
                                     <button
                                         key={int.id}
                                         onClick={() => setSelectedInterview(int)}
@@ -198,5 +209,21 @@ export default function OrganizationInterviewsPage() {
                 </div>
             </div>
         </div>
+    );
+}
+
+/**
+ * @feature ORGANIZATION_INTERVIEWS
+ * @aiNote Portal for organizations to manage and join scheduled video interviews.
+ */
+export default function OrganizationInterviewsPage() {
+    return (
+        <Suspense fallback={
+            <div className="min-h-screen bg-slate-950 flex items-center justify-center">
+                <div className="w-12 h-12 border-4 border-indigo-500/30 border-t-indigo-500 rounded-full animate-spin"></div>
+            </div>
+        }>
+            <InterviewsContent />
+        </Suspense>
     );
 }

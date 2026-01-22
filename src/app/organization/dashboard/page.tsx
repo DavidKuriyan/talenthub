@@ -19,8 +19,8 @@ export default function OrganizationDashboard() {
         messages: 0
     });
     const [loading, setLoading] = useState(true);
-    const [tenant, setTenant] = useState<any>(null);
-    const [user, setUser] = useState<any>(null);
+    const [tenant, setTenant] = useState<{ name: string, slug: string } | null>(null);
+    const [user, setUser] = useState<any>(null); // Keeping user as any for now as session.user is complex
     const router = useRouter();
 
     useEffect(() => {
@@ -56,7 +56,7 @@ export default function OrganizationDashboard() {
                 supabase.from("tenants").select("name, slug").eq("id", tenantId).single(),
                 supabase.from("profiles").select("id", { count: 'exact', head: true }).eq("tenant_id", tenantId),
                 supabase.from("requirements").select("id", { count: 'exact', head: true }).eq("tenant_id", tenantId),
-                (supabase.from("matches") as any).select("id", { count: 'exact', head: true }).eq("tenant_id", tenantId),
+                supabase.from("matches").select("id", { count: 'exact', head: true }).eq("tenant_id", tenantId),
                 supabase.from("interviews").select("id", { count: 'exact', head: true }).eq("tenant_id", tenantId)
             ]);
 
@@ -70,8 +70,9 @@ export default function OrganizationDashboard() {
                 messages: 0 // Messages count is harder to get in one go, leaving as 0 or could fetch if needed
             });
 
-        } catch (e) {
-            console.error("Dashboard error:", e);
+        } catch (e: unknown) {
+            const error = e as Error;
+            console.error("Dashboard error:", error);
         } finally {
             setLoading(false);
         }

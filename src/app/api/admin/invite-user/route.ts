@@ -1,4 +1,4 @@
-import { createClient as createSupabaseClient } from "@supabase/supabase-js";
+import { createAdminClient } from "@/lib/server";
 import { NextResponse } from "next/server";
 
 /**
@@ -7,16 +7,7 @@ import { NextResponse } from "next/server";
  */
 export async function POST(req: Request) {
     try {
-        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-        const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-        if (!serviceRoleKey) {
-            return NextResponse.json({ error: "Server configuration error" }, { status: 500 });
-        }
-
-        const supabaseAdmin = createSupabaseClient(supabaseUrl, serviceRoleKey, {
-            auth: { autoRefreshToken: false, persistSession: false }
-        });
+        const supabaseAdmin = await createAdminClient();
 
         const { email, password, role, tenant_id } = await req.json();
 
@@ -46,7 +37,13 @@ export async function POST(req: Request) {
             user: authData.user
         });
 
-    } catch (e: any) {
-        return NextResponse.json({ error: e.message }, { status: 500 });
+    } catch (e: unknown) {
+        const error = e as Error;
+        console.error("Admin Invite-User Error:", error);
+        return NextResponse.json({
+            success: false,
+            error: "Failed to invite user",
+            details: error.message
+        }, { status: 500 });
     }
 }

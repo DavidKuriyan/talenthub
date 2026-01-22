@@ -68,8 +68,9 @@ export default function PostRequirementPage() {
             setSuccess(true);
             setTimeout(() => router.push("/organization/requirements"), 2000);
 
-        } catch (err: any) {
-            setError(err.message);
+        } catch (err: unknown) {
+            const error = err as Error;
+            setError(error.message);
         } finally {
             setLoading(false);
         }

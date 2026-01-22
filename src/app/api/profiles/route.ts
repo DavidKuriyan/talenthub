@@ -20,7 +20,7 @@ const profileSchema = z.object({
  * @feature ENGINEER_PROFILE
  * @aiNote Handles creating/updating engineer profiles.
  */
-export async function GET(req: Request) {
+export async function GET() {
     try {
         const supabase = await createClient();
         const { data: { session } } = await supabase.auth.getSession();
@@ -36,13 +36,18 @@ export async function GET(req: Request) {
             .single();
 
         if (error && error.code !== 'PGRST116') { // PGRST116 is "not found"
-            return NextResponse.json({ error: error.message }, { status: 500 });
+            return NextResponse.json({ success: false, error: error.message }, { status: 500 });
         }
 
         return NextResponse.json(data || {});
 
-    } catch (e: any) {
-        return NextResponse.json({ error: e.message }, { status: 500 });
+    } catch (e: unknown) {
+        const error = e as Error;
+        console.error("Profiles GET Error:", error);
+        return NextResponse.json(
+            { success: false, error: "Failed to fetch profile", details: error.message },
+            { status: 500 }
+        );
     }
 }
 
@@ -80,7 +85,7 @@ export async function POST(req: Request) {
                 .limit(1)
                 .single();
 
-            tenantId = (defaultTenant as any)?.id;
+            tenantId = (defaultTenant as unknown as { id: string })?.id;
         }
 
         if (!tenantId) {
@@ -102,12 +107,9 @@ export async function POST(req: Request) {
             graduation_year: graduation_year ? Number(graduation_year) : null
         };
 
-        // Use service role to check if profile exists (bypass RLS)
-        const { createClient: createServiceClient } = await import("@supabase/supabase-js");
-        const supabaseAdmin = createServiceClient(
-            process.env.NEXT_PUBLIC_SUPABASE_URL!,
-            process.env.SUPABASE_SERVICE_ROLE_KEY!
-        );
+        // Use centralized Admin Client to check if profile exists (bypass RLS)
+        const { createAdminClient } = await import("@/lib/server");
+        const supabaseAdmin = await createAdminClient();
 
         // Check columns first to avoid "cache" errors if possible, 
         // but easier to just use the data and handle specific errors.
@@ -122,8 +124,8 @@ export async function POST(req: Request) {
 
         if (existingProfile) {
             // Profile exists - UPDATE using service role
-            const updateResult = await supabaseAdmin
-                .from("profiles")
+            const updateResult = await (supabaseAdmin
+                .from("profiles") as any)
                 .update(profileData)
                 .eq("user_id", session.user.id)
                 .select()
@@ -133,8 +135,8 @@ export async function POST(req: Request) {
             error = updateResult.error;
         } else {
             // Profile doesn't exist - INSERT with tenant_id using service role
-            const insertResult = await supabaseAdmin
-                .from("profiles")
+            const insertResult = await (supabaseAdmin
+                .from("profiles") as any)
                 .insert({
                     user_id: session.user.id,
                     tenant_id: tenantId,
@@ -152,18 +154,23 @@ export async function POST(req: Request) {
             // If error is about missing column, it might be a schema cache issue
             if (error.message?.includes("column") && error.message?.includes("not found")) {
                 return NextResponse.json({
+                    success: false,
                     error: "System error: Profile schema desync. Please contact support to refresh database cache.",
                     details: error.message
                 }, { status: 500 });
             }
-            return NextResponse.json({ error: error.message }, { status: 500 });
+            return NextResponse.json({ success: false, error: error.message }, { status: 500 });
         }
 
         return NextResponse.json(data);
 
-    } catch (e: any) {
-        console.error("Profile API Error:", e);
-        return NextResponse.json({ error: e.message }, { status: 500 });
+    } catch (e: unknown) {
+        const error = e as Error;
+        console.error("Profile POST Error:", error);
+        return NextResponse.json(
+            { success: false, error: "Failed to save profile", details: error.message },
+            { status: 500 }
+        );
     }
 }
 

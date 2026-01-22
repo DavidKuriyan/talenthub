@@ -101,7 +101,7 @@ export default function ClientOffersPage() {
                     salary: parseInt(salary) * 100, // Convert to paise
                     start_date: startDate,
                     status: "pending"
-                });
+                } as any);
 
             if (error) throw error;
 

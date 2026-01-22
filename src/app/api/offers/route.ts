@@ -1,5 +1,10 @@
 import { createClient } from "@/lib/server";
 import { NextRequest, NextResponse } from "next/server";
+import { Database } from "@/lib/types";
+
+type OfferInsert = Database['public']['Tables']['offer_letters']['Insert'];
+type OfferUpdate = Database['public']['Tables']['offer_letters']['Update'];
+type MatchUpdate = Database['public']['Tables']['matches']['Update'];
 
 /**
  * @feature OFFERS_API
@@ -46,8 +51,12 @@ export async function GET(req: NextRequest) {
         if (error) throw error;
 
         return NextResponse.json(data);
-    } catch (err: any) {
-        return NextResponse.json({ error: err.message }, { status: 500 });
+    } catch (err: unknown) {
+        const error = err as Error;
+        return NextResponse.json(
+            { success: false, error: "Offer operation failed", details: error.message },
+            { status: 500 }
+        );
     }
 }
 
@@ -70,15 +79,16 @@ export async function POST(req: NextRequest) {
 
         const tenantId = session.user.user_metadata?.tenant_id || session.user.app_metadata?.tenant_id;
 
+        const insertData: any = {
+            tenant_id: tenantId,
+            match_id,
+            salary,
+            status: "pending",
+        };
+
         const { data, error } = await (supabase
             .from("offer_letters") as any)
-            .insert({
-                tenant_id: tenantId,
-                match_id,
-                salary,
-                status: "pending",
-                expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString() // 7 days from now
-            })
+            .insert(insertData)
             .select()
             .single();
 
@@ -87,12 +97,16 @@ export async function POST(req: NextRequest) {
         // Update match status to hired
         await (supabase
             .from("matches") as any)
-            .update({ status: "offer_sent" })
+            .update({ status: "hired" } as any)
             .eq("id", match_id);
 
         return NextResponse.json(data);
-    } catch (err: any) {
-        return NextResponse.json({ error: err.message }, { status: 500 });
+    } catch (err: unknown) {
+        const error = err as Error;
+        return NextResponse.json(
+            { success: false, error: "Offer operation failed", details: error.message },
+            { status: 500 }
+        );
     }
 }
 
@@ -117,7 +131,7 @@ export async function PATCH(req: NextRequest) {
             return NextResponse.json({ error: "Invalid status" }, { status: 400 });
         }
 
-        const updateData = { status }; // Define updateData based on the original logic
+        const updateData: OfferUpdate = { status: status as 'pending' | 'accepted' | 'rejected' };
 
         const { data, error } = await (supabase
             .from("offer_letters") as any)
@@ -129,7 +143,11 @@ export async function PATCH(req: NextRequest) {
         if (error) throw error;
 
         return NextResponse.json(data);
-    } catch (err: any) {
-        return NextResponse.json({ error: err.message }, { status: 500 });
+    } catch (e: unknown) {
+        const error = e as Error;
+        return NextResponse.json(
+            { success: false, error: "Offer operation failed", details: error.message },
+            { status: 500 }
+        );
     }
 }

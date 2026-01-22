@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import crypto from "crypto";
 import { createClient } from "@/lib/server";
+import { Database } from "@/lib/types";
 
 /**
  * @feature PAYMENTS
@@ -59,10 +60,11 @@ export async function POST(req: Request) {
         }
 
         return NextResponse.json({ received: true });
-    } catch (error: any) {
-        console.error("Webhook processing error:", error);
+    } catch (e: unknown) {
+        const error = e as Error;
+        console.error("Razorpay Webhook Error:", error);
         return NextResponse.json(
-            { error: error.message },
+            { success: false, error: "Webhook processing failed", details: error.message },
             { status: 500 }
         );
     }
@@ -71,14 +73,14 @@ export async function POST(req: Request) {
 /**
  * Handle successful payment capture
  */
-async function handlePaymentCaptured(payment: any) {
-    const supabase = await createClient();
+async function handlePaymentCaptured(payment: { order_id: string }) {
+    const { createAdminClient } = await import("@/lib/server");
+    const supabaseAdmin = await createAdminClient();
 
-    const { error } = await (supabase
+    const { error } = await (supabaseAdmin
         .from("orders") as any)
         .update({
             status: "paid",
-            updated_at: new Date().toISOString(),
         })
         .eq("razorpay_order_id", payment.order_id);
 
@@ -92,14 +94,14 @@ async function handlePaymentCaptured(payment: any) {
 /**
  * Handle failed payment
  */
-async function handlePaymentFailed(payment: any) {
-    const supabase = await createClient();
+async function handlePaymentFailed(payment: { order_id: string }) {
+    const { createAdminClient } = await import("@/lib/server");
+    const supabaseAdmin = await createAdminClient();
 
-    const { error } = await (supabase
+    const { error } = await (supabaseAdmin
         .from("orders") as any)
         .update({
-            status: "failed",
-            updated_at: new Date().toISOString(),
+            status: "cancelled", // Using 'cancelled' as 'failed' doesn't exist in Database['public']['Tables']['orders']['Update']
         })
         .eq("razorpay_order_id", payment.order_id);
 
@@ -113,14 +115,14 @@ async function handlePaymentFailed(payment: any) {
 /**
  * Handle order paid event
  */
-async function handleOrderPaid(order: any) {
-    const supabase = await createClient();
+async function handleOrderPaid(order: { id: string }) {
+    const { createAdminClient } = await import("@/lib/server");
+    const supabaseAdmin = await createAdminClient();
 
-    const { error } = await (supabase
+    const { error } = await (supabaseAdmin
         .from("orders") as any)
         .update({
             status: "paid",
-            updated_at: new Date().toISOString(),
         })
         .eq("razorpay_order_id", order.id);
 

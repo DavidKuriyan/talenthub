@@ -52,7 +52,17 @@ export default async function RequirementsPage() {
             <div className="max-w-7xl mx-auto p-6">
                 {requirements && requirements.length > 0 ? (
                     <div className="grid gap-4">
-                        {requirements.map((req: any) => (
+                        {requirements.map((req: {
+                            id: string;
+                            title: string;
+                            role: string;
+                            status: string;
+                            experience_min: number;
+                            experience_max: number;
+                            salary_min: number;
+                            salary_max: number;
+                            required_skills: string[];
+                        }) => (
                             <div
                                 key={req.id}
                                 className="bg-white dark:bg-slate-800 rounded-2xl p-6 shadow-sm border border-slate-200 dark:border-slate-700 hover:shadow-md transition-shadow"

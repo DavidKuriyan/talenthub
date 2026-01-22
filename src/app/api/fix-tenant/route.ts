@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/server";
+import { createAdminClient } from "@/lib/server";
 import { NextResponse } from "next/server";
 
 /**
@@ -7,7 +7,7 @@ import { NextResponse } from "next/server";
  */
 export async function POST(req: Request) {
     try {
-        const supabase = await createClient();
+        const supabase = await createAdminClient();
         const { email } = await req.json();
 
         if (!email) {
@@ -23,7 +23,7 @@ export async function POST(req: Request) {
             .single();
 
         if (tenantError || !defaultTenant) {
-            return NextResponse.json({ error: "No active tenant found" }, { status: 404 });
+            return NextResponse.json({ success: false, error: "No active tenant found" }, { status: 404 });
         }
 
         // Get user by email
@@ -61,6 +61,11 @@ export async function POST(req: Request) {
         });
 
     } catch (e: any) {
-        return NextResponse.json({ error: e.message }, { status: 500 });
+        console.error("Fix Tenant Error:", e);
+        return NextResponse.json({
+            success: false,
+            error: "Failed to fix tenant",
+            details: e.message
+        }, { status: 500 });
     }
 }

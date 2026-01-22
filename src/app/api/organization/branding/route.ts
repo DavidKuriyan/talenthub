@@ -6,7 +6,7 @@ export async function PATCH(req: Request) {
         const supabase = await createClient();
         const { tenantId, logo_url, primary_color } = await req.json();
 
-        if (!tenantId) return NextResponse.json({ error: "Missing tenant ID" }, { status: 400 });
+        if (!tenantId) return NextResponse.json({ success: false, error: "Missing tenant ID" }, { status: 400 });
 
         const { error } = await (supabase.from("tenants") as any)
             .update({ logo_url, primary_color })
@@ -15,7 +15,13 @@ export async function PATCH(req: Request) {
         if (error) throw error;
 
         return NextResponse.json({ success: true });
-    } catch (err: any) {
-        return NextResponse.json({ error: err.message }, { status: 500 });
+    } catch (e: unknown) {
+        const error = e as Error;
+        console.error("Organization Branding Error:", error);
+        return NextResponse.json({
+            success: false,
+            error: "Failed to update branding",
+            details: error.message
+        }, { status: 500 });
     }
 }

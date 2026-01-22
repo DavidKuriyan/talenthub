@@ -2,6 +2,14 @@ import { createClient } from "@/lib/server";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 
+interface Invoice {
+    id: string;
+    amount: number;
+    status: string;
+    created_at: string;
+    engineer_id?: string;
+}
+
 /**
  * @feature ORGANIZATION_INVOICES
  * @aiNote Manage invoices and payments
@@ -21,15 +29,17 @@ export default async function InvoicesPage() {
     }
 
     // Fetch invoices for this organization
-    const { data: invoices } = await supabase
+    const { data: invoicesData } = await supabase
         .from("invoices")
         .select("*")
         .eq("tenant_id", tenantId)
         .order("created_at", { ascending: false });
 
-    const totalRevenue = (invoices as any)?.reduce((sum: number, inv: any) => sum + (inv.amount || 0), 0) || 0;
-    const paidCount = (invoices as any)?.filter((i: any) => i.status === 'paid').length || 0;
-    const pendingCount = (invoices as any)?.filter((i: any) => i.status === 'pending').length || 0;
+    const invoices = (invoicesData || []) as Invoice[];
+
+    const totalRevenue = invoices.reduce((sum: number, inv: Invoice) => sum + (inv.amount || 0), 0) || 0;
+    const paidCount = invoices.filter((i: Invoice) => i.status === 'paid').length || 0;
+    const pendingCount = invoices.filter((i: Invoice) => i.status === 'pending').length || 0;
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-950 dark:to-slate-900">
@@ -73,7 +83,7 @@ export default async function InvoicesPage() {
 
                 {invoices && invoices.length > 0 ? (
                     <div className="space-y-4">
-                        {invoices.map((invoice: any) => (
+                        {invoices.map((invoice: Invoice) => (
                             <div key={invoice.id} className="bg-white dark:bg-slate-800 rounded-2xl p-6 shadow-sm border border-slate-200 dark:border-slate-700">
                                 <div className="flex items-start justify-between mb-4">
                                     <div className="flex-1">

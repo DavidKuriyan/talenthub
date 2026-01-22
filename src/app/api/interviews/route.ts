@@ -1,5 +1,10 @@
 import { createClient } from "@/lib/server";
 import { NextRequest, NextResponse } from "next/server";
+import { Database } from "@/lib/types";
+
+type InterviewInsert = Database['public']['Tables']['interviews']['Insert'];
+type InterviewUpdate = Database['public']['Tables']['interviews']['Update'];
+type MatchUpdate = Database['public']['Tables']['matches']['Update'];
 
 /**
  * @feature INTERVIEWS_API
@@ -46,8 +51,12 @@ export async function GET(req: NextRequest) {
         if (error) throw error;
 
         return NextResponse.json(data);
-    } catch (err: any) {
-        return NextResponse.json({ error: err.message }, { status: 500 });
+    } catch (err: unknown) {
+        const error = err as Error;
+        return NextResponse.json(
+            { success: false, error: "Interview operation failed", details: error.message },
+            { status: 500 }
+        );
     }
 }
 
@@ -71,16 +80,18 @@ export async function POST(req: NextRequest) {
         const tenantId = session.user.user_metadata?.tenant_id || session.user.app_metadata?.tenant_id;
         const jitsiRoomId = `talenthub-interview-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
+        const insertData: any = {
+            tenant_id: tenantId,
+            match_id,
+            scheduled_at,
+            notes: notes || null,
+            jitsi_room_id: jitsiRoomId,
+            status: "scheduled"
+        };
+
         const { data, error } = await (supabase
             .from("interviews") as any)
-            .insert({
-                tenant_id: tenantId,
-                match_id,
-                scheduled_at,
-                notes,
-                jitsi_room_id: jitsiRoomId,
-                status: "scheduled"
-            })
+            .insert(insertData)
             .select()
             .single();
 
@@ -89,12 +100,16 @@ export async function POST(req: NextRequest) {
         // Update match status
         await (supabase
             .from("matches") as any)
-            .update({ status: "interview_scheduled" })
+            .update({ status: "interview_scheduled" } as MatchUpdate)
             .eq("id", match_id);
 
         return NextResponse.json(data);
-    } catch (err: any) {
-        return NextResponse.json({ error: err.message }, { status: 500 });
+    } catch (err: unknown) {
+        const error = err as Error;
+        return NextResponse.json(
+            { success: false, error: "Interview operation failed", details: error.message },
+            { status: 500 }
+        );
     }
 }
 
@@ -115,8 +130,8 @@ export async function PATCH(req: NextRequest) {
             return NextResponse.json({ error: "Interview id is required" }, { status: 400 });
         }
 
-        const updateData: any = {};
-        if (status) updateData.status = status;
+        const updateData: InterviewUpdate = {};
+        if (status) updateData.status = status as 'scheduled' | 'completed' | 'cancelled';
         if (notes !== undefined) updateData.notes = notes;
 
         const { data, error } = await (supabase
@@ -129,7 +144,11 @@ export async function PATCH(req: NextRequest) {
         if (error) throw error;
 
         return NextResponse.json(data);
-    } catch (err: any) {
-        return NextResponse.json({ error: err.message }, { status: 500 });
+    } catch (e: unknown) {
+        const error = e as Error;
+        return NextResponse.json(
+            { success: false, error: "Interview operation failed", details: error.message },
+            { status: 500 }
+        );
     }
 }

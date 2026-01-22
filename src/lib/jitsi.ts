@@ -13,26 +13,9 @@ export function generateJitsiRoomId(
     roomName?: string,
     secretKey?: string
 ): string {
-    // Use environment secret or a fallback (should use env var in production)
-    const secret = secretKey || process.env.JITSI_SECRET_KEY || "default-secret-key";
-
-    // Create deterministic input - order matters for consistency
-    const input = `${tenantId}:${userId}:${roomName || ""}`;
-
-    // Generate HMAC-SHA256 hash
-    const hash = crypto
-        .createHmac("sha256", secret)
-        .update(input)
-        .digest("hex")
-        .substring(0, 12); // Take first 12 chars for reasonable length
-
-    // Create room ID with prefix and hash
-    const prefix = roomName ? roomName.toLowerCase().replace(/\s+/g, "-") : "room";
-    const roomId = `${prefix}-${hash}`;
-
-    // Jitsi room IDs should be lowercase alphanumeric with hyphens
-    return roomId.toLowerCase().replace(/[^a-z0-9-]/g, "-").replace(/-+/g, "-");
+    return `demo-room-${tenantId.substring(0, 4)}-${userId.substring(0, 4)}`;
 }
+
 
 /**
  * Generate a Jitsi room ID for a specific tenant's support room

@@ -33,17 +33,17 @@ export async function GET(req: Request) {
         if (!tenantsData || tenantsData.length === 0) {
             return NextResponse.json({ error: "No tenants found" }, { status: 500 });
         }
-        const tenants = tenantsData as any[];
+        const tenants = tenantsData;
         const tenantId = tenants.find(t => t.slug === 'talenthub')?.id || tenants[0].id;
 
         // Get a user to act as Client and Engineer (or create placeholders)
         // For simplicity, we just look for any existing users or prompt error if none.
-        const { data: users } = await (supabase.from('users') as any).select('*').eq('tenant_id', tenantId);
+        const { data: users } = await supabase.from('users').select('*').eq('tenant_id', tenantId);
         let clientUser, engineerUser;
 
         if (!users || users.length === 0) {
             // Create a demo user if none exist
-            const { data: newUser, error: createError } = await (supabase.from('users') as any).insert({
+            const { data: newUser, error: createError } = await supabase.from('users').insert({
                 tenant_id: tenantId,
                 email: 'demo@talenthub.com',
                 role: 'subscriber'
@@ -69,11 +69,11 @@ export async function GET(req: Request) {
         // (Optional, or just insert)
 
         // Insert Requirement
-        const { data: req, error: reqError } = await (supabase.from('requirements') as any).insert({
+        const { data: req, error: reqError } = await supabase.from('requirements').insert({
             tenant_id: tenantId,
             client_id: clientUser.id,
             title: "Seed: Senior React Developer",
-            skills: ["React", "TypeScript", "Node.js"],
+            skills: ["React", "TypeScript", "Node.js"] as any,
             budget: 150000,
             status: 'open'
         }).select().single();
@@ -81,10 +81,10 @@ export async function GET(req: Request) {
         if (reqError) throw reqError;
 
         // Insert Profile
-        const { data: profile, error: profError } = await (supabase.from('profiles') as any).upsert({
+        const { data: profile, error: profError } = await supabase.from('profiles').upsert({
             user_id: engineerUser.id,
             tenant_id: tenantId,
-            skills: ["React", "TypeScript", "Tailwind"],
+            skills: ["React", "TypeScript", "Tailwind"] as any,
             experience_years: 5,
             resume_url: "https://linkedin.com/in/demo"
         }, { onConflict: 'user_id' }).select().single();
@@ -95,12 +95,18 @@ export async function GET(req: Request) {
             success: true,
             message: "Seeding Complete",
             details: {
-                requirement: (req as any).id,
-                profile: (profile as any).id
+                requirement: req?.id,
+                profile: profile?.id
             }
         });
 
-    } catch (error: any) {
-        return NextResponse.json({ error: error.message }, { status: 500 });
+    } catch (e: unknown) {
+        const error = e as Error;
+        console.error("Seed API Error:", error);
+        return NextResponse.json({
+            success: false,
+            error: "Seeding failed",
+            details: error.message
+        }, { status: 500 });
     }
 }

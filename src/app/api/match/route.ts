@@ -6,7 +6,7 @@
  * Results are stored in the matches table with RLS enforcement.
  */
 
-import { createClient } from "@supabase/supabase-js";
+import { createAdminClient } from "@/lib/server";
 import { NextResponse } from "next/server";
 import { findMatches, isGoodMatch } from "@/lib/matching";
 
@@ -44,15 +44,8 @@ export async function POST(req: Request) {
             );
         }
 
-        // Use Service Role Key for cross-tenant profile access
-        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-        const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-        const supabase = createClient(supabaseUrl, supabaseKey, {
-            auth: {
-                autoRefreshToken: false,
-                persistSession: false
-            }
-        });
+        // Use Admin Client for cross-tenant profile access
+        const supabase = await createAdminClient();
 
         // 1. Fetch the requirement
         const { data: reqData, error: reqError } = await supabase
@@ -134,10 +127,13 @@ export async function POST(req: Request) {
             }))
         });
 
-    } catch (error: any) {
+    } catch (e: unknown) {
+        const error = e as Error;
+        console.error("Match Engine Error:", error);
         return NextResponse.json(
-            { error: "Internal error", details: error.message },
+            { success: false, error: "Internal matching error", details: error.message },
             { status: 500 }
         );
     }
 }
+

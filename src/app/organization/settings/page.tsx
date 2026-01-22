@@ -59,7 +59,7 @@ export default async function OrganizationSettingsPage() {
                             </label>
                             <input
                                 type="text"
-                                value={(tenant as any)?.name || ""}
+                                value={(tenant as unknown as { name?: string })?.name || ""}
                                 disabled
                                 className="w-full px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white"
                             />
@@ -71,7 +71,7 @@ export default async function OrganizationSettingsPage() {
                             </label>
                             <input
                                 type="text"
-                                value={(tenant as any)?.slug || ""}
+                                value={(tenant as unknown as { slug?: string })?.slug || ""}
                                 disabled
                                 className="w-full px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white"
                             />
@@ -83,8 +83,8 @@ export default async function OrganizationSettingsPage() {
                             Status
                         </label>
                         <div className="flex items-center gap-2">
-                            <span className={`px-3 py-1 rounded-full text-sm font-medium ${(tenant as any)?.is_active ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'}`}>
-                                {(tenant as any)?.is_active ? "Active" : "Inactive"}
+                            <span className={`px-3 py-1 rounded-full text-sm font-medium ${(tenant as unknown as { is_active?: boolean })?.is_active ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'}`}>
+                                {(tenant as unknown as { is_active?: boolean })?.is_active ? "Active" : "Inactive"}
                             </span>
                         </div>
                     </div>
@@ -93,8 +93,8 @@ export default async function OrganizationSettingsPage() {
                 {/* Branding Section */}
                 <BrandingForm
                     tenantId={tenantId}
-                    initialLogo={(tenant as any)?.logo_url || ""}
-                    initialColor={(tenant as any)?.primary_color || "#4f46e5"}
+                    initialLogo={(tenant as unknown as { logo_url?: string })?.logo_url || ""}
+                    initialColor={(tenant as unknown as { primary_color?: string })?.primary_color || "#4f46e5"}
                 />
 
                 {/* Other Configs */}

@@ -39,11 +39,11 @@ export async function POST(req: Request) {
         }
 
         const userId = session.user.id;
-        const tenantId = session.user.app_metadata.tenant_id || "talenthub";
+        const tenantId = (session.user.app_metadata as any)?.tenant_id || "talenthub";
 
         // Step 3: Calculate total from items (never trust client-side total)
         const total = items.reduce(
-            (sum: number, item: any) => sum + item.price * item.quantity,
+            (sum: number, item: { price: number; quantity: number }) => sum + item.price * item.quantity,
             0
         );
 
@@ -62,8 +62,7 @@ export async function POST(req: Request) {
                 .update({
                     status: "paid",
                     razorpay_payment_id: paymentId,
-                    updated_at: new Date().toISOString(),
-                })
+                } as any)
                 .eq("razorpay_order_id", orderId)
                 .select()
                 .single();
@@ -87,7 +86,7 @@ export async function POST(req: Request) {
                     status: "paid",
                     razorpay_order_id: orderId,
                     razorpay_payment_id: paymentId,
-                })
+                } as any)
                 .select()
                 .single();
 
@@ -106,17 +105,18 @@ export async function POST(req: Request) {
             razorpay_order_id: orderId,
             razorpay_payment_id: paymentId,
             amount: total,
-            items: items.map((i: any) => ({ id: i.id, name: i.name, qty: i.quantity })),
+            items: items.map((i: { id: string; name: string; quantity: number }) => ({ id: i.id, name: i.name, qty: i.quantity })),
         });
 
         return NextResponse.json({
             success: true,
             orderId: order.id,
         });
-    } catch (error: any) {
-        console.error("Payment verification error:", error);
+    } catch (e: unknown) {
+        const error = e as Error;
+        console.error("Payment Verification Error:", error);
         return NextResponse.json(
-            { error: error.message || "Verification failed" },
+            { success: false, error: "Payment verification failed", details: error.message },
             { status: 500 }
         );
     }

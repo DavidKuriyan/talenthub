@@ -30,8 +30,9 @@ export default function ChatWindow({ matchId, currentUserId }: ChatWindowProps) 
             try {
                 const history = await fetchMessageHistory(matchId);
                 setMessages(history as Message[]);
-            } catch (err) {
-                console.error("Failed to load chat history", err);
+            } catch (err: unknown) {
+                const error = err as Error;
+                console.error("Failed to load chat history", error);
                 setError("Failed to load messages");
             } finally {
                 setIsLoading(false);
@@ -68,8 +69,9 @@ export default function ChatWindow({ matchId, currentUserId }: ChatWindowProps) 
             const content = newMessage;
             setNewMessage('');
             await sendMessage(matchId, currentUserId, content);
-        } catch (err) {
-            console.error("Failed to send message", err);
+        } catch (err: unknown) {
+            const error = err as Error;
+            console.error("Failed to send message", error);
             setError("Failed to send message");
         }
     };
