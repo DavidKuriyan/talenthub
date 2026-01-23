@@ -186,11 +186,14 @@ export default function MessagesPage() {
                                             messages.map((msg, idx) => (
                                                 <div
                                                     key={idx}
-                                                    className={`flex ${msg.sender_id === session?.user.id ? 'justify-end' : 'justify-start'}`}
+                                                    className={`flex flex-col ${msg.sender_id === session?.user.id ? 'items-end' : 'items-start'}`}
                                                 >
+                                                    <span className={`text-xs font-bold mb-1 ${msg.sender_id === session?.user.id ? 'text-emerald-400' : 'text-purple-400'}`}>
+                                                        {msg.sender_id === session?.user.id ? 'You' : 'Recruiter'}
+                                                    </span>
                                                     <div className={`max-w-md px-4 py-2 rounded-2xl ${msg.sender_id === session?.user.id
-                                                        ? 'bg-emerald-600 text-white'
-                                                        : 'bg-white/20 text-white'
+                                                        ? 'bg-emerald-600 text-white rounded-br-sm'
+                                                        : 'bg-purple-600/80 text-white rounded-bl-sm'
                                                         }`}>
                                                         <p>{msg.content}</p>
                                                         <p className="text-xs opacity-70 mt-1">

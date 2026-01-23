@@ -66,7 +66,10 @@ export default async function EngineerJobsPage() {
         }
     }
 
-    console.error("Error fetching matches:", error?.message || error);
+    // Only log actual errors
+    if (error) {
+        console.error("Error fetching matches:", error?.message || error);
+    }
 
     type MatchWithRequirement = {
         id: string;

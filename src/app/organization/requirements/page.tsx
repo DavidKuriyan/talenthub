@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/server";
 import { redirect } from "next/navigation";
 import Link from "next/link";
+import RequirementActions from "@/components/organization/RequirementActions";
 
 /**
  * @feature VIEW_REQUIREMENTS
@@ -128,21 +129,7 @@ export default async function RequirementsPage() {
                                     >
                                         View Matches
                                     </Link>
-                                    <button
-                                        onClick={async () => {
-                                            if (confirm("Are you sure you want to close this requirement?")) {
-                                                await fetch('/api/requirements/status', {
-                                                    method: 'PATCH',
-                                                    headers: { 'Content-Type': 'application/json' },
-                                                    body: JSON.stringify({ id: req.id, status: 'closed' })
-                                                });
-                                                window.location.reload();
-                                            }
-                                        }}
-                                        className="px-4 py-2 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 rounded-lg hover:bg-red-200 dark:hover:bg-red-900/50 transition-colors text-sm font-medium"
-                                    >
-                                        Close
-                                    </button>
+                                    <RequirementActions requirementId={req.id} />
                                     <Link
                                         href={`/organization/requirements/${req.id}`}
                                         className="px-4 py-2 bg-slate-200 dark:bg-slate-700 text-slate-900 dark:text-white rounded-lg hover:bg-slate-300 dark:hover:bg-slate-600 transition-colors text-sm font-medium"

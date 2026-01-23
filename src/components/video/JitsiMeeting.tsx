@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 interface JitsiMeetingProps {
     roomId: string;
@@ -10,6 +10,19 @@ interface JitsiMeetingProps {
 }
 
 export default function JitsiMeeting({ roomId, width = '100%', height = 600, userName }: JitsiMeetingProps) {
+    const [copied, setCopied] = useState(false);
+    const jitsiUrl = `https://meet.jit.si/${roomId}`;
+
+    const copyLink = () => {
+        navigator.clipboard.writeText(jitsiUrl);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+    };
+
+    const openInBrowser = () => {
+        window.open(jitsiUrl, '_blank', 'noopener,noreferrer');
+    };
+
     return (
         <div
             style={{ width, height }}
@@ -23,56 +36,43 @@ export default function JitsiMeeting({ roomId, width = '100%', height = 600, use
                 </div>
 
                 <div className="space-y-2">
-                    <h3 className="text-2xl font-bold text-white tracking-tight">Interview Room Connected</h3>
+                    <h3 className="text-2xl font-bold text-white tracking-tight">Interview Room Ready</h3>
                     <p className="text-zinc-400 text-sm">
-                        You are in a private, encrypted room: <code className="text-indigo-400 font-mono tracking-tighter ml-1">{roomId}</code>
+                        Room: <code className="text-indigo-400 font-mono tracking-tighter ml-1">{roomId}</code>
                     </p>
                 </div>
 
-                <div className="flex gap-4 mt-4">
-                    <div className="flex flex-col items-center gap-2">
-                        <div className="w-12 h-12 rounded-2xl bg-zinc-900 border border-zinc-800 flex items-center justify-center text-xl text-emerald-400">
-                            🎤
-                        </div>
-                        <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Mic On</span>
-                    </div>
-                    <div className="flex flex-col items-center gap-2">
-                        <div className="w-12 h-12 rounded-2xl bg-zinc-900 border border-zinc-800 flex items-center justify-center text-xl text-emerald-400">
-                            📹
-                        </div>
-                        <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Video On</span>
-                    </div>
-                    <div className="flex flex-col items-center gap-2">
-                        <div className="w-12 h-12 rounded-2xl bg-red-500/10 border border-red-500/20 flex items-center justify-center text-xl text-red-400">
-                            📞
-                        </div>
-                        <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Leave</span>
-                    </div>
+                {/* Action Buttons */}
+                <div className="flex gap-3 mt-4">
+                    <button
+                        onClick={openInBrowser}
+                        className="px-6 py-3 bg-gradient-to-r from-indigo-500 to-purple-600 text-white rounded-xl font-bold text-sm hover:opacity-90 transition-opacity flex items-center gap-2 shadow-lg shadow-indigo-500/20"
+                    >
+                        🎥 Join Meeting
+                    </button>
+                    <button
+                        onClick={copyLink}
+                        className="px-4 py-3 bg-zinc-800 border border-zinc-700 text-zinc-300 rounded-xl font-bold text-sm hover:bg-zinc-700 transition-colors flex items-center gap-2"
+                    >
+                        {copied ? '✓ Copied!' : '📋 Copy Link'}
+                    </button>
                 </div>
 
-                <div className="mt-8 p-4 rounded-2xl bg-white/5 backdrop-blur-sm border border-white/10 w-full">
+                <div className="mt-4 p-4 rounded-2xl bg-white/5 backdrop-blur-sm border border-white/10 w-full">
                     <div className="flex items-center justify-between text-xs mb-3">
-                        <span className="text-zinc-400 font-bold uppercase tracking-wider">Participants (2)</span>
-                        <span className="text-emerald-400 font-mono">● LIVE</span>
+                        <span className="text-zinc-400 font-bold uppercase tracking-wider">Meeting Link</span>
+                        <span className="text-emerald-400 font-mono">● READY</span>
                     </div>
-                    <div className="space-y-3">
-                        <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 rounded-full bg-indigo-500 flex items-center justify-center text-xs font-bold text-white uppercase">
-                                {userName?.[0] || 'U'}
-                            </div>
-                            <span className="text-sm font-medium text-white">{userName || 'You'} (Host)</span>
-                        </div>
-                        <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 rounded-full bg-purple-500 flex items-center justify-center text-xs font-bold text-white uppercase">
-                                R
-                            </div>
-                            <span className="text-sm font-medium text-white">Recruiter (Pending Admission)</span>
-                        </div>
-                    </div>
+                    <p className="text-xs text-indigo-400 font-mono break-all bg-zinc-900/50 p-2 rounded-lg border border-zinc-800">
+                        {jitsiUrl}
+                    </p>
+                    <p className="text-xs text-zinc-500 mt-2">
+                        Share this link with the engineer to join the same meeting
+                    </p>
                 </div>
 
                 <p className="text-[10px] text-zinc-600 mt-4 italic font-medium">
-                    Jitsi SDK Mock Implementation Layer Active for Academic Review
+                    Powered by Jitsi Meet - Free &amp; Secure Video Conferencing
                 </p>
             </div>
         </div>

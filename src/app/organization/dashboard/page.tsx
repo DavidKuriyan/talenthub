@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import EliteUpgrade from "@/components/organization/EliteUpgrade";
 
 /**
  * @feature ORGANIZATION_DASHBOARD
@@ -80,7 +81,7 @@ export default function OrganizationDashboard() {
 
     const handleLogout = async () => {
         await supabase.auth.signOut();
-        window.location.href = "/";
+        window.location.href = "/login";
     };
 
     if (loading) return (
@@ -109,7 +110,7 @@ export default function OrganizationDashboard() {
                         </Link>
                         <button
                             onClick={handleLogout}
-                            className="px-6 py-3 bg-red-500/10 border border-red-500/20 text-red-500 rounded-2xl hover:bg-red-500 hover:text-white transition-all font-bold text-sm"
+                            className="px-6 py-3 bg-zinc-800 border border-zinc-700 text-zinc-300 rounded-2xl hover:bg-zinc-700 hover:text-white transition-all font-bold text-sm"
                         >
                             Log Out
                         </button>
@@ -163,12 +164,7 @@ export default function OrganizationDashboard() {
                                 <li className="flex items-center gap-2 text-sm font-bold"><span>✦</span> Direct Source Integration</li>
                                 <li className="flex items-center gap-2 text-sm font-bold"><span>✦</span> Priority Support</li>
                             </ul>
-                            <button
-                                onClick={() => alert("✅ Upgrade successful! (Academic Demo)\n\nYour organization is now on TalentHub Elite.")}
-                                className="w-full py-4 bg-white text-indigo-900 rounded-2xl font-black text-xs hover:bg-zinc-100 transition-colors relative z-10"
-                            >
-                                UPGRADE PLAN
-                            </button>
+                            <EliteUpgrade />
                         </section>
                     </div>
                 </div>

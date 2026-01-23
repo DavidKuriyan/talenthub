@@ -44,7 +44,7 @@ export default function OrganizationMessagesPage() {
                 return;
             }
 
-            // Fetch all matches for this organization - removed invalid FK joins
+            // Fetch all matches for this organization
             const { data: matchesData, error } = await supabase
                 .from("matches")
                 .select(`
@@ -56,11 +56,30 @@ export default function OrganizationMessagesPage() {
 
             if (error) throw error;
 
-            // Format conversations with fallback values
+            // Fetch engineer profiles to get names
+            const profileIds = (matchesData || []).map((m: any) => m.profile_id).filter(Boolean);
+            let profilesMap: Record<string, string> = {};
+
+            if (profileIds.length > 0) {
+                const { data: profiles } = await supabase
+                    .from("profiles")
+                    .select("id, full_name")
+                    .in("id", profileIds);
+
+                if (profiles) {
+                    profilesMap = profiles.reduce((acc: Record<string, string>, p: any) => {
+                        acc[p.id] = p.full_name || "Unknown Engineer";
+                        return acc;
+                    }, {});
+                }
+            }
+
+            // Format conversations with engineer names
             const formattedConversations = (matchesData || []).map((m: any) => ({
                 id: m.id,
                 title: `Match #${m.id?.slice(0, 8) || "Unknown"}`,
                 engineerId: m.profile_id || "Unknown",
+                engineerName: profilesMap[m.profile_id] || "Unknown Engineer",
                 lastMessage: "Click to start chatting"
             }));
 
@@ -166,7 +185,7 @@ export default function OrganizationMessagesPage() {
                                             }`}
                                     >
                                         <p className="font-bold text-white mb-1">{conv.title}</p>
-                                        <p className="text-xs text-zinc-500 truncate">Engineer ID: {conv.engineerId.slice(0, 8)}...</p>
+                                        <p className="text-xs text-zinc-500 truncate">Engineer: {conv.engineerName}</p>
                                     </button>
                                 ))
                             )}

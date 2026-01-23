@@ -98,7 +98,16 @@ export default async function EngineerInterviewsPage() {
                                                 </span>
                                             </div>
 
-                                            {interview.video_link && (
+                                            {interview.jitsi_room_id ? (
+                                                <a
+                                                    href={`https://meet.jit.si/${interview.jitsi_room_id}`}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="inline-block px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors font-medium"
+                                                >
+                                                    🎥 Join Video Interview
+                                                </a>
+                                            ) : interview.video_link && (
                                                 <a
                                                     href={interview.video_link}
                                                     target="_blank"
