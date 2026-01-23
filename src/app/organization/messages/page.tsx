@@ -44,42 +44,30 @@ export default function OrganizationMessagesPage() {
                 return;
             }
 
-            // Fetch all matches for this organization
+            // Fetch all matches for this organization with direct joins
             const { data: matchesData, error } = await supabase
                 .from("matches")
                 .select(`
                     id,
                     requirement_id,
-                    profile_id
+                    profile_id,
+                    profiles:profile_id (
+                        full_name
+                    ),
+                    requirements (
+                        title
+                    )
                 `)
                 .eq("tenant_id", tenantId);
 
             if (error) throw error;
 
-            // Fetch engineer profiles to get names
-            const profileIds = (matchesData || []).map((m: any) => m.profile_id).filter(Boolean);
-            let profilesMap: Record<string, string> = {};
-
-            if (profileIds.length > 0) {
-                const { data: profiles } = await supabase
-                    .from("profiles")
-                    .select("id, full_name")
-                    .in("id", profileIds);
-
-                if (profiles) {
-                    profilesMap = profiles.reduce((acc: Record<string, string>, p: any) => {
-                        acc[p.id] = p.full_name || "Unknown Engineer";
-                        return acc;
-                    }, {});
-                }
-            }
-
-            // Format conversations with engineer names
+            // Format conversations with real names and job titles
             const formattedConversations = (matchesData || []).map((m: any) => ({
                 id: m.id,
-                title: `Match #${m.id?.slice(0, 8) || "Unknown"}`,
+                title: m.requirements?.title || `Match #${m.id?.slice(0, 8) || "Unknown"}`,
                 engineerId: m.profile_id || "Unknown",
-                engineerName: profilesMap[m.profile_id] || "Unknown Engineer",
+                engineerName: m.profiles?.full_name || "Anonymous Engineer",
                 lastMessage: "Click to start chatting"
             }));
 
@@ -211,23 +199,36 @@ export default function OrganizationMessagesPage() {
                                     </div>
                                 </div>
 
-                                <div className="flex-1 overflow-y-auto p-8 space-y-6">
-                                    {messages.map((msg, idx) => (
-                                        <div
-                                            key={idx}
-                                            className={`flex ${msg.sender_id === session?.user.id ? 'justify-end' : 'justify-start'}`}
-                                        >
-                                            <div className={`max-w-md p-4 rounded-2xl ${msg.sender_id === session?.user.id
-                                                ? 'bg-indigo-500 text-white shadow-lg shadow-indigo-500/20'
-                                                : 'bg-zinc-800 text-zinc-100'
-                                                }`}>
-                                                <p className="text-sm font-medium">{msg.content}</p>
-                                                <p className="text-[10px] opacity-40 mt-2 font-bold uppercase tracking-widest">
-                                                    {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                                </p>
+                                <div className="flex-1 overflow-y-auto p-8 space-y-6 bg-zinc-950/20">
+                                    {messages.map((msg, idx) => {
+                                        const isMe = msg.sender_id === session?.user.id;
+                                        return (
+                                            <div
+                                                key={idx}
+                                                className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}
+                                            >
+                                                <div className={`flex flex-col ${isMe ? 'items-end' : 'items-start'} max-w-[80%]`}>
+                                                    {!isMe && (
+                                                        <span className="text-[10px] font-black uppercase tracking-widest text-zinc-500 mb-1 ml-2">
+                                                            {selectedConversation.engineerName}
+                                                        </span>
+                                                    )}
+                                                    <div className={`p-4 shadow-sm ${isMe
+                                                        ? 'bg-indigo-600 text-white rounded-2xl rounded-tr-sm'
+                                                        : 'bg-zinc-800 text-zinc-100 rounded-2xl rounded-tl-sm border border-white/5'
+                                                        }`}>
+                                                        <p className="text-sm font-medium leading-relaxed">{msg.content}</p>
+                                                        <div className={`flex items-center gap-1 mt-2 ${isMe ? 'text-indigo-200' : 'text-zinc-500'}`}>
+                                                            <span className="text-[10px] font-bold uppercase tracking-widest">
+                                                                {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                            </span>
+                                                            {isMe && <span className="text-[10px]">✓</span>}
+                                                        </div>
+                                                    </div>
+                                                </div>
                                             </div>
-                                        </div>
-                                    ))}
+                                        );
+                                    })}
                                     <div ref={messagesEndRef} />
                                 </div>
 

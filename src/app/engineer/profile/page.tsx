@@ -12,6 +12,7 @@ const AVAILABLE_SKILLS = [
 
 type ProfileData = {
     id?: string;
+    full_name: string;
     skills: string[];
     experience_years: number;
     resume_url: string;
@@ -22,10 +23,12 @@ type ProfileData = {
     degree: string;
     university: string;
     graduation_year: number;
+    desired_salary: number;
 };
 
 export default function EngineerProfilePage() {
     const [profileData, setProfileData] = useState<ProfileData>({
+        full_name: "",
         skills: [],
         experience_years: 0,
         resume_url: "",
@@ -35,7 +38,8 @@ export default function EngineerProfilePage() {
         education: "",
         degree: "",
         university: "",
-        graduation_year: new Date().getFullYear()
+        graduation_year: new Date().getFullYear(),
+        desired_salary: 0
     });
 
     const [loading, setLoading] = useState(true);
@@ -56,6 +60,7 @@ export default function EngineerProfilePage() {
                 if (data.id) {
                     setProfileData({
                         id: data.id,
+                        full_name: data.full_name || "",
                         skills: data.skills || [],
                         experience_years: data.experience_years || 0,
                         resume_url: data.resume_url || "",
@@ -65,7 +70,8 @@ export default function EngineerProfilePage() {
                         education: data.education || "",
                         degree: data.degree || "",
                         university: data.university || "",
-                        graduation_year: data.graduation_year || new Date().getFullYear()
+                        graduation_year: data.graduation_year || new Date().getFullYear(),
+                        desired_salary: data.desired_salary || 0
                     });
                 } else {
                     setIsEditing(true); // New profile
@@ -93,11 +99,18 @@ export default function EngineerProfilePage() {
         setSaving(true);
         setMessage(null);
 
+        if (!profileData.full_name?.trim()) {
+            setMessage({ type: 'error', text: "Full Name is required." });
+            setSaving(false);
+            return;
+        }
+
         try {
             const res = await fetch("/api/profiles", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
+                    full_name: profileData.full_name.trim(),
                     skills: profileData.skills,
                     experience_years: Number(profileData.experience_years),
                     resume_url: profileData.resume_url,
@@ -107,7 +120,8 @@ export default function EngineerProfilePage() {
                     education: profileData.education,
                     degree: profileData.degree,
                     university: profileData.university,
-                    graduation_year: Number(profileData.graduation_year)
+                    graduation_year: Number(profileData.graduation_year),
+                    desired_salary: Number(profileData.desired_salary)
                 }),
             });
 
@@ -119,6 +133,7 @@ export default function EngineerProfilePage() {
             const updatedData = await res.json();
             setProfileData({
                 id: updatedData.id,
+                full_name: updatedData.full_name || "",
                 skills: updatedData.skills || [],
                 experience_years: updatedData.experience_years || 0,
                 resume_url: updatedData.resume_url || "",
@@ -128,7 +143,8 @@ export default function EngineerProfilePage() {
                 education: updatedData.education || "",
                 degree: updatedData.degree || "",
                 university: updatedData.university || "",
-                graduation_year: updatedData.graduation_year || new Date().getFullYear()
+                graduation_year: updatedData.graduation_year || new Date().getFullYear(),
+                desired_salary: updatedData.desired_salary || 0
             });
             setMessage({ type: 'success', text: profileData.id ? "Profile updated successfully!" : "Profile created successfully!" });
             setIsEditing(false);
@@ -199,6 +215,32 @@ export default function EngineerProfilePage() {
                     {/* Main Content */}
                     <div className="lg:col-span-2 space-y-6">
                         <form onSubmit={handleSubmit} className="space-y-6">
+                            {/* Identity Section */}
+                            <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl p-8 shadow-sm">
+                                <div className="flex items-center gap-3 mb-6">
+                                    <span className="text-3xl">👤</span>
+                                    <div>
+                                        <h2 className="text-2xl font-black text-zinc-900 dark:text-zinc-50 tracking-tight">Identity</h2>
+                                        <p className="text-sm text-zinc-500 font-medium">Your public professional name</p>
+                                    </div>
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-black uppercase tracking-widest text-zinc-500 mb-2">Full Name</label>
+                                    {isEditing ? (
+                                        <input
+                                            type="text"
+                                            required
+                                            value={profileData.full_name}
+                                            onChange={(e) => setProfileData({ ...profileData, full_name: e.target.value })}
+                                            placeholder="e.g. David Kuriyan"
+                                            className="w-full px-4 py-3 border-2 border-zinc-200 dark:border-zinc-700 rounded-xl bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-50 focus:ring-2 focus:ring-emerald-500/50 outline-none transition-all font-bold"
+                                        />
+                                    ) : (
+                                        <p className="text-2xl font-black text-zinc-900 dark:text-zinc-50 tracking-tight">{profileData.full_name || "Anonymous Engineer"}</p>
+                                    )}
+                                </div>
+                            </div>
+
                             {/* Skills Section */}
                             <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl p-8 shadow-sm">
                                 <div className="flex items-center gap-3 mb-6">
@@ -383,6 +425,27 @@ export default function EngineerProfilePage() {
 
                                     <div>
                                         <label className="block text-xs font-black uppercase tracking-widest text-zinc-500 mb-2">
+                                            Desired Annual Salary (₹)
+                                        </label>
+                                        {isEditing ? (
+                                            <input
+                                                type="number"
+                                                min="0"
+                                                step="100000"
+                                                value={profileData.desired_salary}
+                                                onChange={(e) => setProfileData({ ...profileData, desired_salary: Number(e.target.value) })}
+                                                placeholder="e.g. 1500000"
+                                                className="w-full px-4 py-3 border-2 border-zinc-200 dark:border-zinc-700 rounded-xl bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-50 focus:ring-2 focus:ring-emerald-500/50 outline-none transition-all font-bold"
+                                            />
+                                        ) : (
+                                            <p className="text-3xl font-black text-emerald-600 tracking-tighter">
+                                                ₹{(profileData.desired_salary / 100000).toFixed(1)}L
+                                            </p>
+                                        )}
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-xs font-black uppercase tracking-widest text-zinc-500 mb-2">
                                             Digital Presence (Portfolio/Resume)
                                         </label>
                                         {isEditing ? (
@@ -412,7 +475,7 @@ export default function EngineerProfilePage() {
                                 <div className="flex flex-col sm:flex-row gap-4 pt-4">
                                     <button
                                         type="submit"
-                                        disabled={saving || profileData.skills.length === 0}
+                                        disabled={saving || profileData.skills.length === 0 || !profileData.full_name}
                                         className="flex-1 bg-gradient-to-r from-emerald-600 to-teal-600 text-white px-8 py-4 rounded-2xl font-black text-sm hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-xl shadow-emerald-500/20"
                                     >
                                         {saving ? (

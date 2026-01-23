@@ -23,13 +23,14 @@ interface EngineerProfile {
     full_name: string;
     skills: string[];
     experience_years: number;
+    desired_salary: number;
     tenant_id: string;
 }
 
 interface Match {
     id: string;
     requirement_id: string;
-    engineer_id: string;
+    profile_id: string;
     score: number;
     status: string;
     profiles?: EngineerProfile;
@@ -95,7 +96,7 @@ function MatchingContent() {
                     .from("matches")
                     .select(`
                         *,
-                        profiles:engineer_id (*)
+                        profiles:profile_id (*)
                     `)
                     .eq("requirement_id", requirementId);
                 setMatches(exMatches as unknown as Match[] || []);
@@ -124,7 +125,7 @@ function MatchingContent() {
                 .from("matches")
                 .insert({
                     requirement_id: requirementId,
-                    engineer_id: engineerId,
+                    profile_id: engineerId,
                     score: score,
                     status: 'pending'
                 } as any);
@@ -245,7 +246,7 @@ function MatchingContent() {
                                             <div key={match.id} className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-100 dark:border-slate-700">
                                                 <div className="flex flex-col">
                                                     <span className="text-sm font-bold text-slate-900 dark:text-white">
-                                                        {match.profiles?.full_name || `Engineer #${match.engineer_id.substring(0, 8)}`}
+                                                        {match.profiles?.full_name || "Anonymous Engineer"}
                                                     </span>
                                                     <span className="text-[10px] text-zinc-500 uppercase font-bold">Match Score: {match.score}%</span>
                                                 </div>
@@ -258,7 +259,7 @@ function MatchingContent() {
                                                     </span>
                                                     {match.status === 'approved' && (
                                                         <button
-                                                            onClick={() => handleRecruit(match.id, match.engineer_id)}
+                                                            onClick={() => handleRecruit(match.id, match.profile_id)}
                                                             className="px-3 py-1 bg-green-600 text-white rounded-lg text-xs font-bold hover:bg-green-700 transition-colors shadow-sm"
                                                         >
                                                             Recruit
@@ -291,32 +292,53 @@ function MatchingContent() {
                                             ? Math.round((matchingSkills.length / selectedRequirement.required_skills.length) * 100)
                                             : 0;
 
+                                        const isAlreadyMatched = matches.some((m: Match) => m.profile_id === engineer.id);
+
                                         const experienceMatch = engineer.experience_years >= selectedRequirement.experience_min &&
                                             engineer.experience_years <= selectedRequirement.experience_max;
 
-                                        const isAlreadyMatched = matches.some((m: Match) => m.engineer_id === engineer.id);
+                                        const salaryMatch = engineer.desired_salary >= selectedRequirement.salary_min &&
+                                            engineer.desired_salary <= selectedRequirement.salary_max;
+
+                                        // Total match relevance: Skills (60%) + Experience (20%) + Salary (20%)
+                                        let relevanceScore = (matchScore * 0.6);
+                                        if (experienceMatch) relevanceScore += 20;
+                                        if (salaryMatch) relevanceScore += 20;
+                                        relevanceScore = Math.round(relevanceScore);
+
+                                        // Filter: Only show engineers with a full name and some relevance (> 30%)
+                                        if (!engineer.full_name?.trim()) return null;
+                                        if (relevanceScore < 30 && !experienceMatch && matchScore < 20) return null;
 
                                         return (
                                             <div key={engineer.id} className={`p-4 rounded-2xl border transition-all ${isAlreadyMatched ? 'opacity-60 bg-slate-50/50 dark:bg-slate-900/50 border-slate-100 dark:border-slate-800' : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 hover:border-indigo-500/50 shadow-sm'}`}>
                                                 <div className="flex items-start justify-between mb-3">
                                                     <div className="flex-1">
                                                         <p className="font-bold text-slate-900 dark:text-white">
-                                                            {engineer.full_name || `Engineer #${engineer.id.substring(0, 8)}`}
+                                                            {engineer.full_name}
                                                         </p>
-                                                        <div className="flex items-center gap-2 mt-1">
+                                                        <div className="flex flex-wrap items-center gap-2 mt-1">
                                                             <span className="text-[10px] bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 px-2 py-0.5 rounded-md font-bold">
                                                                 {engineer.experience_years}Y EXP
                                                             </span>
                                                             {experienceMatch && (
                                                                 <span className="text-[10px] text-emerald-600 font-bold uppercase tracking-wider">✓ Exp Match</span>
                                                             )}
+                                                            {salaryMatch ? (
+                                                                <span className="text-[10px] text-blue-600 font-bold uppercase tracking-wider">✓ Budget Match</span>
+                                                            ) : (
+                                                                <span className="text-[10px] text-rose-400 font-bold uppercase tracking-wider">Out of Budget</span>
+                                                            )}
                                                         </div>
                                                     </div>
-                                                    <div className={`px-2 py-1 rounded-lg text-xs font-bold ${matchScore >= 70 ? 'bg-emerald-500 text-white' :
-                                                        matchScore >= 40 ? 'bg-amber-500 text-white' :
-                                                            'bg-rose-500 text-white'
-                                                        }`}>
-                                                        {matchScore}% Match
+                                                    <div className="flex flex-col items-end gap-1">
+                                                        <div className={`px-2 py-1 rounded-lg text-xs font-bold ${relevanceScore >= 70 ? 'bg-emerald-500 text-white' :
+                                                            relevanceScore >= 40 ? 'bg-amber-500 text-white' :
+                                                                'bg-rose-500 text-white'
+                                                            }`}>
+                                                            {relevanceScore}% Relevance
+                                                        </div>
+                                                        <div className="text-[10px] text-zinc-500 font-bold">Skills: {matchScore}%</div>
                                                     </div>
                                                 </div>
 
@@ -346,7 +368,7 @@ function MatchingContent() {
                                                     </div>
                                                 ) : (
                                                     <button
-                                                        onClick={() => handleCreateMatch(engineer.id, matchScore)}
+                                                        onClick={() => handleCreateMatch(engineer.id, relevanceScore)}
                                                         className="w-full py-2.5 bg-indigo-600 text-white rounded-xl text-xs font-bold hover:bg-indigo-700 transition-all shadow-md shadow-indigo-500/20 active:scale-[0.98]"
                                                     >
                                                         Match with Requirement

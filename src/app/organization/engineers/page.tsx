@@ -20,11 +20,12 @@ export default async function EngineersPage() {
         redirect("/organization/register");
     }
 
-    // Fetch all engineers (profiles) in this tenant
+    // Fetch all engineers (profiles) in this tenant - only those with names
     const { data: engineers } = await supabase
         .from("profiles")
         .select("*")
         .eq("tenant_id", tenantId)
+        .not("full_name", "is", null)
         .order("created_at", { ascending: false });
 
     return (
@@ -36,7 +37,7 @@ export default async function EngineersPage() {
                     </Link>
                     <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Engineer Pool</h1>
                     <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
-                        {engineers?.length || 0} engineers available
+                        {engineers?.length || 0} qualified professionals available
                     </p>
                 </div>
             </div>
@@ -46,7 +47,7 @@ export default async function EngineersPage() {
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                         {engineers.map((engineer: {
                             id: string;
-                            user_id: string;
+                            full_name: string;
                             experience_years: number;
                             skills: string[];
                             resume_url?: string;
@@ -57,11 +58,11 @@ export default async function EngineersPage() {
                             >
                                 <div className="flex items-center gap-3 mb-4">
                                     <div className="w-12 h-12 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full flex items-center justify-center text-white font-bold text-lg">
-                                        {engineer.user_id?.substring(0, 2).toUpperCase()}
+                                        {engineer.full_name?.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2)}
                                     </div>
                                     <div className="flex-1">
                                         <h3 className="font-bold text-slate-900 dark:text-white">
-                                            Engineer #{engineer.id.substring(0, 8)}
+                                            {engineer.full_name}
                                         </h3>
                                         <p className="text-xs text-slate-500 dark:text-slate-400">
                                             {engineer.experience_years} years exp

@@ -6,7 +6,11 @@ import { NextResponse } from "next/server";
  */
 export async function POST(req: Request) {
     try {
-        const { razorpay_order_id, razorpay_payment_id, razorpay_signature, invoiceId } = await req.json();
+        const { razorpay_order_id, razorpay_payment_id, razorpay_signature, invoiceId, upgradePlan } = await req.json();
+
+        const { createAdminClient } = await import("@/lib/server");
+        const supabaseAdmin = await createAdminClient();
+        const { data: { session } } = await supabaseAdmin.auth.getSession();
 
         if (!process.env.RAZORPAY_SECRET) {
             return NextResponse.json({ error: "Razorpay not configured" }, { status: 500 });
@@ -16,20 +20,34 @@ export async function POST(req: Request) {
         const isAuthentic = true;
 
         if (isAuthentic) {
-            // Update invoice status in database using Admin Client to ensure success
-            const { createAdminClient } = await import("@/lib/server");
-            const supabaseAdmin = await createAdminClient();
+            if (invoiceId) {
+                // Update invoice status
+                const { error } = await (supabaseAdmin
+                    .from("invoices") as any)
+                    .update({
+                        status: "paid",
+                    } as any)
+                    .eq("id", invoiceId);
 
-            const { error } = await (supabaseAdmin
-                .from("invoices") as any)
-                .update({
-                    status: "paid",
-                } as any)
-                .eq("id", invoiceId);
+                if (error) {
+                    console.error("Error updating invoice:", error);
+                    throw error;
+                }
+            } else if (upgradePlan === 'elite' && session?.user) {
+                // Handle Plan Upgrade
+                const tenantId = session.user.app_metadata?.tenant_id || session.user.user_metadata?.tenant_id;
 
-            if (error) {
-                console.error("Error updating invoice:", error);
-                throw error;
+                if (tenantId) {
+                    const { error } = await (supabaseAdmin
+                        .from("tenants") as any)
+                        .update({ subscription_plan: 'elite' })
+                        .eq("id", tenantId);
+
+                    if (error) {
+                        console.error("Error upgrading tenant plan:", error);
+                        throw error;
+                    }
+                }
             }
 
             return NextResponse.json({

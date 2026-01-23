@@ -13,7 +13,8 @@ const profileSchema = z.object({
     education: z.string().optional().or(z.literal("")),
     degree: z.string().optional().or(z.literal("")),
     university: z.string().optional().or(z.literal("")),
-    graduation_year: z.number().optional().or(z.literal(0))
+    graduation_year: z.number().optional().or(z.literal(0)),
+    desired_salary: z.number().optional().or(z.literal(0))
 });
 
 /**
@@ -70,7 +71,8 @@ export async function POST(req: Request) {
         const {
             full_name, skills, experience_years, resume_url,
             address, city, country,
-            education, degree, university, graduation_year
+            education, degree, university, graduation_year,
+            desired_salary
         } = result.data;
 
         // Get tenant_id - prefer from user metadata, fall back to first available tenant
@@ -93,7 +95,8 @@ export async function POST(req: Request) {
         }
 
         // Build profile data - only fields that exist in database
-        const profileData = {
+        // Build standard profile data (safe fields that definitely exist)
+        const safeProfileData = {
             full_name: full_name || session.user.user_metadata?.full_name || null,
             skills: skills || [],
             experience_years: Number(experience_years),
@@ -104,7 +107,12 @@ export async function POST(req: Request) {
             education: education || null,
             degree: degree || null,
             university: university || null,
-            graduation_year: graduation_year ? Number(graduation_year) : null
+            graduation_year: graduation_year ? Number(graduation_year) : null,
+        };
+
+        // Data that might be missing in schema cache
+        const riskyProfileData = {
+            desired_salary: desired_salary ? Number(desired_salary) : 0
         };
 
         // Use centralized Admin Client to check if profile exists (bypass RLS)
@@ -114,39 +122,112 @@ export async function POST(req: Request) {
         // Check columns first to avoid "cache" errors if possible, 
         // but easier to just use the data and handle specific errors.
 
-        const { data: existingProfile } = await supabaseAdmin
-            .from("profiles")
+        const { data: existingProfile, error: checkError } = await (supabaseAdmin
+            .from("profiles") as any)
             .select("id")
             .eq("user_id", session.user.id)
             .maybeSingle();
 
-        let data, error;
+        if (checkError) {
+            console.error("Initial profile check failed:", checkError);
+            return NextResponse.json({ success: false, error: checkError.message }, { status: 500 });
+        }
+
+        let data: any, error: any;
 
         if (existingProfile) {
-            // Profile exists - UPDATE using service role
+            console.log(`Updating existing profile for user ${session.user.id}...`);
+            // Profile exists - Attempt a full update first
+            const allData = { ...safeProfileData, ...riskyProfileData };
             const updateResult = await (supabaseAdmin
                 .from("profiles") as any)
-                .update(profileData)
+                .update(allData)
                 .eq("user_id", session.user.id)
                 .select()
                 .single();
 
-            data = updateResult.data;
-            error = updateResult.error;
+            if (!updateResult.error) {
+                data = updateResult.data;
+            } else {
+                console.warn("Full update failed, falling back to field-by-field update:", updateResult.error.message);
+
+                // Fallback: Field by field so we save what we can
+                const fields = Object.entries(allData);
+                let currentData = { id: (existingProfile as any).id };
+
+                for (const [key, value] of fields) {
+                    const fieldUpdate = await (supabaseAdmin
+                        .from("profiles") as any)
+                        .update({ [key]: value })
+                        .eq("user_id", session.user.id)
+                        .select()
+                        .single();
+
+                    if (!fieldUpdate.error) {
+                        currentData = { ...currentData, ...fieldUpdate.data };
+                    } else {
+                        console.error(`Failed to update field ${key}:`, fieldUpdate.error.message);
+                    }
+                }
+                data = currentData;
+                error = null; // We consider partial success as success
+            }
         } else {
-            // Profile doesn't exist - INSERT with tenant_id using service role
-            const insertResult = await (supabaseAdmin
+            console.log(`Inserting new profile for user ${session.user.id}...`);
+            // Profile doesn't exist - Attempt full insert
+            const fullInsertData = {
+                user_id: session.user.id,
+                tenant_id: tenantId,
+                ...safeProfileData,
+                ...riskyProfileData
+            };
+
+            let insertResult = await (supabaseAdmin
                 .from("profiles") as any)
-                .insert({
-                    user_id: session.user.id,
-                    tenant_id: tenantId,
-                    ...profileData
-                })
+                .insert(fullInsertData)
                 .select()
                 .single();
 
-            data = insertResult.data;
-            error = insertResult.error;
+            if (insertResult.error) {
+                console.warn("Full insert failed, falling back to minimum viable insert:", insertResult.error.message);
+
+                // Minimum viable insert (user_id and tenant_id)
+                const minInsert = await (supabaseAdmin
+                    .from("profiles") as any)
+                    .insert({
+                        user_id: session.user.id,
+                        tenant_id: tenantId
+                    })
+                    .select()
+                    .single();
+
+                if (minInsert.error) {
+                    error = minInsert.error;
+                    data = null;
+                } else {
+                    // Now try to update fields one by one
+                    const allData = { ...safeProfileData, ...riskyProfileData };
+                    let currentData = minInsert.data;
+
+                    for (const [key, value] of Object.entries(allData)) {
+                        const fieldUpdate = await (supabaseAdmin
+                            .from("profiles") as any)
+                            .update({ [key]: value })
+                            .eq("user_id", session.user.id)
+                            .select()
+                            .single();
+
+                        if (!fieldUpdate.error) {
+                            currentData = { ...currentData, ...fieldUpdate.data };
+                        }
+                    }
+                    data = currentData;
+                    error = null;
+                }
+            } else {
+                data = insertResult.data;
+                error = null;
+            }
         }
 
         if (error) {

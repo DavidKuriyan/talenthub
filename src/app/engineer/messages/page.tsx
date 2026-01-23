@@ -37,24 +37,32 @@ export default function MessagesPage() {
 
     const loadConversations = async (userId: string) => {
         try {
-            // Get engineer's profile
-            const { data: profile } = await supabase
-                .from("profiles")
-                .select("id")
+            // Get engineer's profile - must have full_name
+            const { data: profile } = await (supabase
+                .from("profiles") as any)
+                .select("id, full_name")
                 .eq("user_id", userId)
                 .single();
 
-            if (!profile) {
-                setLoading(false);
+            if (!profile || !(profile as any).full_name) {
+                console.warn("Profile incomplete - redirecting to setup");
+                router.push("/engineer/profile");
                 return;
             }
 
-            // Fetch matches (conversations) - removed invalid FK join
+            // Fetch matches (conversations) - Relational join now works!
             const { data: matchesData, error } = await supabase
                 .from("matches")
                 .select(`
                     id,
-                    requirement_id
+                    requirement_id,
+                    requirements (
+                        title,
+                        tenant_id
+                    ),
+                    tenants (
+                        name
+                    )
                 `)
                 .eq("profile_id", (profile as any).id);
 
@@ -63,8 +71,10 @@ export default function MessagesPage() {
             // Format conversations with fallback title
             const formattedConversations = (matchesData || []).map((m: any) => ({
                 id: m.id,
-                name: `Job Match #${m.id?.slice(0, 8) || "Unknown"}`,
-                lastMessage: "Chat about this role"
+                name: m.requirements?.title || `Job Match #${m.id?.slice(0, 8)}`,
+                company: m.tenants?.name || "TalentHub Partner",
+                lastMessage: "Chat about this role",
+                roomName: `${m.requirements?.tenant_id}_${m.id}` // Derive room name
             }));
 
             setConversations(formattedConversations);
@@ -164,7 +174,8 @@ export default function MessagesPage() {
                                             }`}
                                     >
                                         <p className="font-medium text-white">{conv.name}</p>
-                                        <p className="text-sm text-emerald-300 truncate">{conv.lastMessage}</p>
+                                        <p className="text-xs text-emerald-400 font-bold uppercase tracking-widest">{conv.company}</p>
+                                        <p className="text-sm text-emerald-300 truncate opacity-60">{conv.lastMessage}</p>
                                     </div>
                                 ))}
                             </div>
@@ -174,34 +185,61 @@ export default function MessagesPage() {
                         <div className="flex-1 flex flex-col">
                             {selectedConversation ? (
                                 <>
+                                    <div className="p-4 border-b border-white/10 flex justify-between items-center bg-white/5">
+                                        <div>
+                                            <h3 className="font-bold text-white text-lg">
+                                                {conversations.find(c => c.id === selectedConversation)?.name}
+                                            </h3>
+                                            <p className="text-xs text-emerald-400 font-bold uppercase tracking-widest">
+                                                {conversations.find(c => c.id === selectedConversation)?.company}
+                                            </p>
+                                        </div>
+                                        <Link
+                                            href="/engineer/interviews"
+                                            className="px-4 py-2 bg-emerald-600 text-white rounded-xl text-xs font-bold hover:bg-emerald-700 transition-all flex items-center gap-2"
+                                        >
+                                            📹 Join Interview
+                                        </Link>
+                                    </div>
+
                                     {/* Messages */}
-                                    <div className="flex-1 overflow-y-auto p-6 space-y-4">
+                                    <div className="flex-1 overflow-y-auto p-6 space-y-6 bg-black/10">
                                         {messages.length === 0 ? (
-                                            <div className="text-center py-12">
+                                            <div className="flex flex-col items-center justify-center h-full opacity-40">
                                                 <div className="text-6xl mb-4">💬</div>
-                                                <p className="text-white text-lg">No messages yet</p>
+                                                <p className="text-white text-lg font-bold">No messages yet</p>
                                                 <p className="text-emerald-300 text-sm">Start the conversation!</p>
                                             </div>
                                         ) : (
-                                            messages.map((msg, idx) => (
-                                                <div
-                                                    key={idx}
-                                                    className={`flex flex-col ${msg.sender_id === session?.user.id ? 'items-end' : 'items-start'}`}
-                                                >
-                                                    <span className={`text-xs font-bold mb-1 ${msg.sender_id === session?.user.id ? 'text-emerald-400' : 'text-purple-400'}`}>
-                                                        {msg.sender_id === session?.user.id ? 'You' : 'Recruiter'}
-                                                    </span>
-                                                    <div className={`max-w-md px-4 py-2 rounded-2xl ${msg.sender_id === session?.user.id
-                                                        ? 'bg-emerald-600 text-white rounded-br-sm'
-                                                        : 'bg-purple-600/80 text-white rounded-bl-sm'
-                                                        }`}>
-                                                        <p>{msg.content}</p>
-                                                        <p className="text-xs opacity-70 mt-1">
-                                                            {new Date(msg.created_at).toLocaleTimeString()}
-                                                        </p>
+                                            messages.map((msg, idx) => {
+                                                const isMe = msg.sender_id === session?.user.id;
+                                                return (
+                                                    <div
+                                                        key={idx}
+                                                        className={`flex flex-col ${isMe ? 'items-end' : 'items-start'}`}
+                                                    >
+                                                        <div className={`flex flex-col ${isMe ? 'items-end' : 'items-start'} max-w-[85%]`}>
+                                                            {!isMe && (
+                                                                <span className="text-[10px] font-black uppercase tracking-widest text-emerald-400 mb-1 ml-1">
+                                                                    Recruiter
+                                                                </span>
+                                                            )}
+                                                            <div className={`px-5 py-3 shadow-xl ${isMe
+                                                                ? 'bg-gradient-to-br from-emerald-600 to-teal-700 text-white rounded-2xl rounded-tr-sm'
+                                                                : 'bg-zinc-800 text-zinc-100 rounded-2xl rounded-tl-sm border border-emerald-700/20'
+                                                                }`}>
+                                                                <p className="text-sm font-medium leading-relaxed">{msg.content}</p>
+                                                                <div className={`flex items-center gap-2 mt-2 ${isMe ? 'text-emerald-100/60' : 'text-zinc-500'}`}>
+                                                                    <span className="text-[9px] font-black uppercase tracking-widest">
+                                                                        {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                                    </span>
+                                                                    {isMe && <span className="text-[9px] font-black">DELIVERED</span>}
+                                                                </div>
+                                                            </div>
+                                                        </div>
                                                     </div>
-                                                </div>
-                                            ))
+                                                );
+                                            })
                                         )}
                                         <div ref={messagesEndRef} />
                                     </div>

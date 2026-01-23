@@ -38,7 +38,8 @@ export default function EliteUpgrade({ onSuccess }: EliteUpgradeProps) {
                     razorpay_order_id: orderData.orderId,
                     razorpay_payment_id: `pay_mock_${Date.now()}`,
                     razorpay_signature: 'mock_signature',
-                    invoiceId: null
+                    invoiceId: null,
+                    upgradePlan: 'elite'
                 })
             });
 

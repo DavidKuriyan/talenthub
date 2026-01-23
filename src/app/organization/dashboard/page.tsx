@@ -53,12 +53,13 @@ export default function OrganizationDashboard() {
             }
 
             // Fetch Tenant and Stats
-            const [tenantRes, engineersRes, reqsRes, matchesRes, interviewsRes] = await Promise.all([
+            const [tenantRes, engineersRes, reqsRes, matchesRes, interviewsRes, messagesRes] = await Promise.all([
                 supabase.from("tenants").select("name, slug").eq("id", tenantId).single(),
                 supabase.from("profiles").select("id", { count: 'exact', head: true }).eq("tenant_id", tenantId),
                 supabase.from("requirements").select("id", { count: 'exact', head: true }).eq("tenant_id", tenantId),
                 supabase.from("matches").select("id", { count: 'exact', head: true }).eq("tenant_id", tenantId),
-                supabase.from("interviews").select("id", { count: 'exact', head: true }).eq("tenant_id", tenantId)
+                supabase.from("interviews").select("id", { count: 'exact', head: true }).eq("tenant_id", tenantId),
+                supabase.from("messages").select("id", { count: 'exact', head: true }).eq("tenant_id", tenantId)
             ]);
 
             setTenant(tenantRes.data);
@@ -68,7 +69,7 @@ export default function OrganizationDashboard() {
                 matches: matchesRes.count || 0,
                 placements: 0, // Placeholder for now
                 interviews: interviewsRes.count || 0,
-                messages: 0 // Messages count is harder to get in one go, leaving as 0 or could fetch if needed
+                messages: messagesRes.count || 0
             });
 
         } catch (e: unknown) {
@@ -81,7 +82,7 @@ export default function OrganizationDashboard() {
 
     const handleLogout = async () => {
         await supabase.auth.signOut();
-        window.location.href = "/login";
+        window.location.href = "/organization/login";
     };
 
     if (loading) return (
@@ -105,9 +106,6 @@ export default function OrganizationDashboard() {
                         </h1>
                     </div>
                     <div className="flex gap-4">
-                        <Link href="/organization/settings" className="px-6 py-3 bg-zinc-900 border border-zinc-800 rounded-2xl hover:bg-zinc-800 transition-all font-bold text-sm">
-                            Settings
-                        </Link>
                         <button
                             onClick={handleLogout}
                             className="px-6 py-3 bg-zinc-800 border border-zinc-700 text-zinc-300 rounded-2xl hover:bg-zinc-700 hover:text-white transition-all font-bold text-sm"

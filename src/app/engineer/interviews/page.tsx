@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/server";
 import { redirect } from "next/navigation";
 import Link from "next/link";
+import VideoCallContainer from "@/components/video/VideoCallContainer";
 
 /**
  * @feature ENGINEER_INTERVIEWS
@@ -17,7 +18,7 @@ export default async function EngineerInterviewsPage() {
     // Get engineer's profile first
     const { data: profile } = await supabase
         .from("profiles")
-        .select("id")
+        .select("id, full_name")
         .eq("user_id", session.user.id)
         .single();
 
@@ -33,6 +34,9 @@ export default async function EngineerInterviewsPage() {
                     profile_id,
                     requirements (
                         title
+                    ),
+                    tenants (
+                        name
                     )
                 )
             `)
@@ -87,8 +91,11 @@ export default async function EngineerInterviewsPage() {
                                             <div className="flex items-start justify-between mb-4">
                                                 <div className="flex-1">
                                                     <h3 className="text-xl font-bold text-white mb-1">
-                                                        {interview.title || "Interview"}
+                                                        {interview.matches?.requirements?.title || "Interview"}
                                                     </h3>
+                                                    <p className="text-emerald-400 font-bold text-xs uppercase tracking-widest mb-2">
+                                                        Org: {interview.matches?.tenants?.name || "TalentHub Partner"}
+                                                    </p>
                                                     <p className="text-emerald-200 text-sm">
                                                         📅 {new Date(interview.scheduled_at).toLocaleString()}
                                                     </p>
@@ -98,24 +105,14 @@ export default async function EngineerInterviewsPage() {
                                                 </span>
                                             </div>
 
-                                            {interview.jitsi_room_id ? (
-                                                <a
-                                                    href={`https://meet.jit.si/${interview.jitsi_room_id}`}
-                                                    target="_blank"
-                                                    rel="noopener noreferrer"
-                                                    className="inline-block px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors font-medium"
-                                                >
-                                                    🎥 Join Video Interview
-                                                </a>
-                                            ) : interview.video_link && (
-                                                <a
-                                                    href={interview.video_link}
-                                                    target="_blank"
-                                                    rel="noopener noreferrer"
-                                                    className="inline-block px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors font-medium"
-                                                >
-                                                    🎥 Join Video Interview
-                                                </a>
+                                            {interview.jitsi_room_id && (
+                                                <div className="mt-4 border border-emerald-500/20 rounded-xl overflow-hidden h-[400px]">
+                                                    <VideoCallContainer
+                                                        roomName={interview.jitsi_room_id}
+                                                        userName={(profile as any)?.full_name || session.user.user_metadata?.full_name || "Engineer"}
+                                                        height="100%"
+                                                    />
+                                                </div>
                                             )}
                                         </div>
                                     ))}
@@ -135,8 +132,11 @@ export default async function EngineerInterviewsPage() {
                                             <div className="flex items-start justify-between">
                                                 <div className="flex-1">
                                                     <h3 className="text-lg font-bold text-white mb-1">
-                                                        {interview.title || "Interview"}
+                                                        {interview.matches?.requirements?.title || "Interview"}
                                                     </h3>
+                                                    <p className="text-emerald-400 font-bold text-[10px] uppercase tracking-widest mb-1">
+                                                        Org: {interview.matches?.tenants?.name || "TalentHub Partner"}
+                                                    </p>
                                                     <p className="text-emerald-200 text-sm">
                                                         📅 {new Date(interview.scheduled_at).toLocaleString()}
                                                     </p>

@@ -28,16 +28,44 @@ export function subscribeToMessages(
         )
         .subscribe((status, err) => {
             console.log(`Subscription to match:${matchId} status:`, status);
-            if (err && onError) {
-                console.error("Realtime subscription error:", err);
-                onError(err);
+
+            if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || err) {
+                console.warn("Realtime error, switching to polling fallback...", err);
+                if (onError) onError(err || new Error(status));
+
+                // Fallback to polling
+                startPolling(matchId, onNewMessage);
             }
         });
 
     // Return unsubscribe function
     return async () => {
+        clearInterval(pollingInterval);
         await supabase.removeChannel(channel);
     };
+}
+
+let pollingInterval: NodeJS.Timeout;
+
+function startPolling(matchId: string, onNewMessage: (message: Message) => void) {
+    if (pollingInterval) clearInterval(pollingInterval);
+
+    // Simple set of seen message IDs to avoid duplicates
+    let seenIds = new Set<string>();
+
+    pollingInterval = setInterval(async () => {
+        // Fetch only last 5 messages to check for new ones
+        const latestInfo = await fetchMessageHistory(matchId, 5, 0);
+        if (latestInfo && latestInfo.length > 0) {
+            latestInfo.forEach(msg => {
+                // If the message is newer than valid threshold (e.g. 5 seconds) and we haven't processed it
+                // Actually, simplest is just to emit all distinct ones and let UI dedup
+                // but fetchMessageHistory returns history.
+                // We rely on the UI to deduplicate based on ID.
+                onNewMessage(msg as Message);
+            });
+        }
+    }, 2000);
 }
 
 /**

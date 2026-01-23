@@ -15,20 +15,20 @@ export default async function EngineerJobsPage() {
         redirect("/engineer/login");
     }
 
-    // Get engineer's profile
+    // Get engineer's profile - must have full_name
     const { data: profile } = await (supabase
         .from("profiles") as any)
-        .select("id, skills, availability")
+        .select("id, full_name, skills, availability")
         .eq("user_id", session.user.id)
         .maybeSingle();
 
-    if (!profile || !profile.skills || (profile.skills as string[]).length === 0) {
+    if (!profile || !profile.full_name?.trim() || !profile.skills || (profile.skills as string[]).length === 0) {
         return (
             <div className="min-h-screen bg-zinc-50 dark:bg-black p-8 flex items-center justify-center">
                 <div className="text-center max-w-md">
                     <div className="w-16 h-16 rounded-2xl bg-yellow-500/20 flex items-center justify-center text-3xl mx-auto mb-4">⚠️</div>
                     <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-50">Complete Your Profile First</h1>
-                    <p className="text-zinc-500 mt-2 mb-6">You need to set up your skills and profile before viewing job matches.</p>
+                    <p className="text-zinc-500 mt-2 mb-6">You need to set up your full name and skills before viewing job matches.</p>
                     <Link href="/engineer/profile" className="bg-emerald-600 text-white px-6 py-3 rounded-xl font-bold hover:bg-emerald-700 transition-colors">
                         Set Up Profile →
                     </Link>
@@ -37,8 +37,7 @@ export default async function EngineerJobsPage() {
         );
     }
 
-    // Fetch matches for this engineer's profile
-    // Note: Using separate query since matches may not have FK to requirements
+    // Fetch matches for this engineer's profile - Relational join now works!
     const { data: matches, error } = await (supabase
         .from("matches") as any)
         .select(`
@@ -46,29 +45,22 @@ export default async function EngineerJobsPage() {
             score,
             status,
             created_at,
-            requirement_id
+            requirement_id,
+            requirements (
+                id,
+                title,
+                required_skills,
+                salary_min,
+                salary_max,
+                status
+            )
         `)
         .eq("profile_id", (profile as any).id)
         .order("created_at", { ascending: false });
 
-    // Fetch requirements separately if matches exist
-    let requirementsMap: Record<string, any> = {};
-    if (matches && matches.length > 0) {
-        const reqIds = [...new Set(matches.map((m: any) => m.requirement_id).filter(Boolean))];
-        if (reqIds.length > 0) {
-            const { data: reqs } = await (supabase
-                .from("requirements") as any)
-                .select("id, title, skills, budget, status")
-                .in("id", reqIds);
-            if (reqs) {
-                requirementsMap = reqs.reduce((acc: any, r: any) => ({ ...acc, [r.id]: r }), {});
-            }
-        }
-    }
-
     // Only log actual errors
     if (error) {
-        console.error("Error fetching matches:", error?.message || error);
+        console.error("DEBUG - Matches Error:", error);
     }
 
     type MatchWithRequirement = {
@@ -79,16 +71,14 @@ export default async function EngineerJobsPage() {
         requirements: {
             id: string;
             title: string;
-            skills: string[];
-            budget: number | null;
+            required_skills: string[];
+            salary_min: number;
+            salary_max: number;
             status: string;
         };
     };
 
-    const typedMatches = (matches || []).map((m: any) => ({
-        ...m,
-        requirements: requirementsMap[m.requirement_id] || { id: m.requirement_id, title: "Job Requirement", skills: [], budget: null, status: "open" }
-    })) as MatchWithRequirement[];
+    const typedMatches = (matches || []) as any[] as MatchWithRequirement[];
 
     const getStatusBadge = (status: string) => {
         switch (status) {
@@ -147,13 +137,18 @@ export default async function EngineerJobsPage() {
                                 <div className="flex justify-between items-start">
                                     <div className="flex-1">
                                         <div className="flex items-center gap-3 mb-2">
-                                            <h2 className="text-xl font-bold text-zinc-900 dark:text-zinc-50">{match.requirements.title}</h2>
-                                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusBadge(match.status)}`}>
+                                            <div className="flex flex-col">
+                                                <h2 className="text-xl font-bold text-zinc-900 dark:text-zinc-50">{match.requirements.title}</h2>
+                                                <p className="text-sm font-semibold text-zinc-500 uppercase tracking-wide">
+                                                    {(match.requirements as any).tenants?.name || "TalentHub Partner"}
+                                                </p>
+                                            </div>
+                                            <span className={`px-2 py-1 rounded-full text-xs font-medium ml-auto ${getStatusBadge(match.status)}`}>
                                                 {match.status.replace('_', ' ')}
                                             </span>
                                         </div>
                                         <div className="flex flex-wrap gap-2 mb-3">
-                                            {match.requirements.skills && Array.isArray(match.requirements.skills) && match.requirements.skills.map((skill: string) => (
+                                            {match.requirements.required_skills && Array.isArray(match.requirements.required_skills) && match.requirements.required_skills.map((skill: string) => (
                                                 <span key={skill} className="bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 px-2 py-1 rounded-lg text-xs font-medium">
                                                     {skill}
                                                 </span>
@@ -163,8 +158,8 @@ export default async function EngineerJobsPage() {
                                             <span className="flex items-center gap-1">
                                                 <span className="font-semibold text-emerald-600">{match.score}%</span> match
                                             </span>
-                                            {match.requirements.budget && (
-                                                <span>Budget: ₹{(match.requirements.budget / 100).toLocaleString()}</span>
+                                            {match.requirements.salary_min > 0 && (
+                                                <span>Budget: ₹{(match.requirements.salary_min / 100000).toFixed(1)}L - ₹{(match.requirements.salary_max / 100000).toFixed(1)}L</span>
                                             )}
                                             <span>Matched: {new Date(match.created_at).toLocaleDateString()}</span>
                                         </div>

@@ -4,7 +4,7 @@ import { useState, useEffect, Suspense } from "react";
 import { supabase } from "@/lib/supabase";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import JitsiMeeting from "@/components/video/JitsiMeeting";
+import VideoCallContainer from "@/components/video/VideoCallContainer";
 
 interface Interview {
     id: string;
@@ -16,7 +16,7 @@ interface Interview {
     matches?: {
         id: string;
         requirements?: { title: string };
-        profiles?: { user_id: string };
+        profiles?: { full_name: string };
     };
 }
 
@@ -53,7 +53,12 @@ function InterviewsContent() {
                     scheduled_at,
                     jitsi_room_id,
                     status,
-                    notes
+                    notes,
+                    matches!inner(
+                        id,
+                        requirements(title),
+                        profiles(full_name)
+                    )
                 `)
                 .eq("tenant_id", tenantId)
                 .order("scheduled_at", { ascending: true });
@@ -84,7 +89,7 @@ function InterviewsContent() {
 
         try {
             const tenantId = user.user_metadata?.tenant_id || user.app_metadata?.tenant_id;
-            const roomId = `talenthub-${filterMatchId}-${Math.random().toString(36).substring(7)}`;
+            const roomId = `talenthub - ${filterMatchId} - ${Math.random().toString(36).substring(7)}`;
 
             const { data, error } = await supabase
                 .from("interviews")
@@ -151,10 +156,14 @@ function InterviewsContent() {
                                     <button
                                         key={int.id}
                                         onClick={() => setSelectedInterview(int)}
-                                        className={`w-full p-6 text-left hover:bg-white/5 transition-all ${selectedInterview?.id === int.id ? 'bg-indigo-500/10 border-l-2 border-indigo-500' : ''
-                                            }`}
+                                        className={`w-full p-6 text-left hover:bg-white/5 transition-all ${selectedInterview?.id === int.id ? 'bg-indigo-500/10 border-l-2 border-indigo-500' : ''}`}
                                     >
-                                        <p className="font-bold text-white mb-1">{int.matches?.requirements?.title || "Video Interview"}</p>
+                                        <p className="font-bold text-white mb-1">
+                                            {int.matches?.requirements?.title || "Video Interview"}
+                                        </p>
+                                        <p className="text-[10px] text-zinc-500 uppercase font-black mb-2">
+                                            Candidate: {int.matches?.profiles?.full_name || "Unknown"}
+                                        </p>
                                         <div className="flex items-center gap-2 text-xs text-zinc-500">
                                             <span>📅 {new Date(int.scheduled_at).toLocaleDateString()}</span>
                                             <span>•</span>
@@ -162,7 +171,7 @@ function InterviewsContent() {
                                         </div>
                                         <div className="mt-3">
                                             <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-widest ${int.status === 'scheduled' ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20' : 'bg-zinc-800 text-zinc-500'
-                                                }`}>
+                                                } `}>
                                                 {int.status}
                                             </span>
                                         </div>
@@ -191,8 +200,8 @@ function InterviewsContent() {
                                     </div>
                                 </div>
                                 <div className="flex-1 p-6">
-                                    <JitsiMeeting
-                                        roomId={selectedInterview.jitsi_room_id}
+                                    <VideoCallContainer
+                                        roomName={selectedInterview.jitsi_room_id}
                                         userName={user?.user_metadata?.full_name || "Recruiter"}
                                         height="100%"
                                     />
