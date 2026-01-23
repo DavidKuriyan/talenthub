@@ -1,6 +1,4 @@
-import { createClient } from "@/lib/server";
 import { NextResponse } from "next/server";
-import crypto from "crypto";
 
 /**
  * @feature RAZORPAY_VERIFICATION
@@ -40,6 +38,13 @@ export async function POST(req: Request) {
                 message: "Mock Verification Successful"
             });
         }
+
+        // Handle case where signature is not authentic
+        return NextResponse.json({
+            success: false,
+            verified: false,
+            error: "Payment signature verification failed"
+        }, { status: 400 });
 
     } catch (e: unknown) {
         const error = e as Error;

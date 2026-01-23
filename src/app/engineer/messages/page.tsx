@@ -49,29 +49,29 @@ export default function MessagesPage() {
                 return;
             }
 
-            // Fetch matches (conversations)
+            // Fetch matches (conversations) - removed invalid FK join
             const { data: matchesData, error } = await supabase
                 .from("matches")
                 .select(`
                     id,
-                    requirements (
-                        title
-                    )
+                    requirement_id
                 `)
                 .eq("profile_id", (profile as any).id);
 
             if (error) throw error;
 
+            // Format conversations with fallback title
             const formattedConversations = (matchesData || []).map((m: any) => ({
                 id: m.id,
-                name: (m.requirements as any)?.title || "Job Match",
+                name: `Job Match #${m.id?.slice(0, 8) || "Unknown"}`,
                 lastMessage: "Chat about this role"
             }));
 
             setConversations(formattedConversations);
             setLoading(false);
-        } catch (error) {
-            console.error("Error loading conversations:", error);
+        } catch (error: any) {
+            console.error("Error loading conversations:", error?.message || error);
+            setConversations([]);
             setLoading(false);
         }
     };

@@ -38,6 +38,7 @@ export default async function EngineerJobsPage() {
     }
 
     // Fetch matches for this engineer's profile
+    // Note: Using separate query since matches may not have FK to requirements
     const { data: matches, error } = await (supabase
         .from("matches") as any)
         .select(`
@@ -45,20 +46,27 @@ export default async function EngineerJobsPage() {
             score,
             status,
             created_at,
-            requirements (
-                id,
-                title,
-                skills,
-                budget,
-                status
-            )
+            requirement_id
         `)
         .eq("profile_id", (profile as any).id)
         .order("created_at", { ascending: false });
 
-    if (error) {
-        console.error("Error fetching matches:", error);
+    // Fetch requirements separately if matches exist
+    let requirementsMap: Record<string, any> = {};
+    if (matches && matches.length > 0) {
+        const reqIds = [...new Set(matches.map((m: any) => m.requirement_id).filter(Boolean))];
+        if (reqIds.length > 0) {
+            const { data: reqs } = await (supabase
+                .from("requirements") as any)
+                .select("id, title, skills, budget, status")
+                .in("id", reqIds);
+            if (reqs) {
+                requirementsMap = reqs.reduce((acc: any, r: any) => ({ ...acc, [r.id]: r }), {});
+            }
+        }
     }
+
+    console.error("Error fetching matches:", error?.message || error);
 
     type MatchWithRequirement = {
         id: string;
@@ -74,7 +82,10 @@ export default async function EngineerJobsPage() {
         };
     };
 
-    const typedMatches = (matches || []) as MatchWithRequirement[];
+    const typedMatches = (matches || []).map((m: any) => ({
+        ...m,
+        requirements: requirementsMap[m.requirement_id] || { id: m.requirement_id, title: "Job Requirement", skills: [], budget: null, status: "open" }
+    })) as MatchWithRequirement[];
 
     const getStatusBadge = (status: string) => {
         switch (status) {

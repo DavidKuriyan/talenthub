@@ -1,6 +1,4 @@
 import { NextResponse } from "next/server";
-import Razorpay from "razorpay";
-import crypto from "crypto";
 
 /**
  * @feature RAZORPAY_PAYMENT

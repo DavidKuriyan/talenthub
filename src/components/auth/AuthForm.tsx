@@ -36,17 +36,22 @@ export default function AuthForm({ mode, adminMode = false, portalType = "defaul
     // Fetch available tenants for selection
     useEffect(() => {
         const fetchTenants = async () => {
-            const { data, error } = await supabase
-                .from("tenants")
-                .select("id, name, slug")
-                .eq("is_active", true)
-                .order("name");
+            try {
+                const { data, error } = await supabase
+                    .from("tenants")
+                    .select("id, name, slug")
+                    .eq("is_active", true)
+                    .order("name");
 
-            if (!error && data) {
-                setTenants(data as Tenant[]);
-                if (data.length > 0) {
-                    setSelectedTenant((data as Tenant[])[0].id);
+                if (!error && data) {
+                    setTenants(data as Tenant[]);
+                    if (data.length > 0) {
+                        setSelectedTenant((data as Tenant[])[0].id);
+                    }
                 }
+            } catch (e) {
+                console.error("Failed to fetch tenants:", e);
+                // Continue without tenant selection - will use default
             }
         };
         fetchTenants();

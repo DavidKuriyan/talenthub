@@ -44,15 +44,16 @@ function InterviewsContent() {
 
             const tenantId = session.user.user_metadata?.tenant_id || session.user.app_metadata?.tenant_id;
 
+            // Removed invalid nested joins to fix PGRST200
             let query = supabase
                 .from("interviews")
                 .select(`
-                    *,
-                    matches (
-                        id,
-                        requirements (title),
-                        profiles (user_id)
-                    )
+                    id,
+                    match_id,
+                    scheduled_at,
+                    jitsi_room_id,
+                    status,
+                    notes
                 `)
                 .eq("tenant_id", tenantId)
                 .order("scheduled_at", { ascending: true });
@@ -71,9 +72,8 @@ function InterviewsContent() {
                 setSelectedInterview(data[0]);
             }
 
-        } catch (e: unknown) {
-            const error = e as Error;
-            console.error("Error fetching interviews:", JSON.stringify(error, null, 2));
+        } catch (e: any) {
+            console.error("Error fetching interviews:", e?.message || e);
         } finally {
             setLoading(false);
         }

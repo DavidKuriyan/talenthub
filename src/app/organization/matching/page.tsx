@@ -130,9 +130,10 @@ function MatchingContent() {
                 } as any);
             if (error) throw error;
             fetchData(tenantId!);
-        } catch (error) {
-            console.error("Error creating match:", error);
-            alert("Failed to create match");
+            alert("✅ Match created successfully!");
+        } catch (error: any) {
+            console.error("Error creating match:", error?.message || error);
+            alert("Failed to create match: " + (error?.message || "Unknown error"));
         }
     };
 

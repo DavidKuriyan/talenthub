@@ -154,21 +154,6 @@ export default function OrganizationDashboard() {
 
                     {/* Sidebar */}
                     <div className="space-y-8">
-                        <section className="p-8 rounded-[2.5rem] bg-zinc-900/80 border border-white/5 shadow-2xl">
-                            <h3 className="text-lg font-bold mb-6 flex items-center gap-2">
-                                <span className="w-2 h-2 bg-indigo-500 rounded-full animate-pulse"></span>
-                                Platform Status
-                            </h3>
-                            <div className="space-y-4">
-                                <StatusItem label="Database Sync" status="Healthy" color="text-indigo-400" />
-                                <StatusItem label="Matching Engine" status="Online" color="text-emerald-400" />
-                                <StatusItem label="Video API" status="Ready" color="text-indigo-400" />
-                            </div>
-                            <div className="mt-8 p-4 bg-indigo-500/10 rounded-2xl border border-indigo-500/20">
-                                <p className="text-xs text-indigo-300 font-medium">Auto-matching enabled</p>
-                            </div>
-                        </section>
-
                         <section className="p-8 rounded-[2.5rem] bg-gradient-to-br from-indigo-600 to-purple-700 text-white shadow-2xl shadow-indigo-500/20 relative overflow-hidden group">
                             <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 blur-3xl -mr-16 -mt-16 group-hover:bg-white/20 transition-all"></div>
                             <h3 className="text-xl font-black mb-1 relative z-10">TalentHub Elite</h3>
@@ -178,7 +163,10 @@ export default function OrganizationDashboard() {
                                 <li className="flex items-center gap-2 text-sm font-bold"><span>✦</span> Direct Source Integration</li>
                                 <li className="flex items-center gap-2 text-sm font-bold"><span>✦</span> Priority Support</li>
                             </ul>
-                            <button className="w-full py-4 bg-white text-indigo-900 rounded-2xl font-black text-xs hover:bg-zinc-100 transition-colors relative z-10">
+                            <button
+                                onClick={() => alert("✅ Upgrade successful! (Academic Demo)\n\nYour organization is now on TalentHub Elite.")}
+                                className="w-full py-4 bg-white text-indigo-900 rounded-2xl font-black text-xs hover:bg-zinc-100 transition-colors relative z-10"
+                            >
                                 UPGRADE PLAN
                             </button>
                         </section>

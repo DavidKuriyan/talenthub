@@ -44,32 +44,31 @@ export default function OrganizationMessagesPage() {
                 return;
             }
 
-            // Fetch all matches for this organization
+            // Fetch all matches for this organization - removed invalid FK joins
             const { data: matchesData, error } = await supabase
                 .from("matches")
                 .select(`
                     id,
-                    requirements (title),
-                    profiles (
-                        user_id
-                    )
+                    requirement_id,
+                    profile_id
                 `)
                 .eq("tenant_id", tenantId);
 
             if (error) throw error;
 
-            // Format conversations - in a real app, we'd fetch the user's name too
+            // Format conversations with fallback values
             const formattedConversations = (matchesData || []).map((m: any) => ({
                 id: m.id,
-                title: m.requirements?.title || "Unknown Job",
-                engineerId: m.profiles?.user_id || "Unknown",
+                title: `Match #${m.id?.slice(0, 8) || "Unknown"}`,
+                engineerId: m.profile_id || "Unknown",
                 lastMessage: "Click to start chatting"
             }));
 
             setConversations(formattedConversations);
             setLoading(false);
-        } catch (error) {
-            console.error("Error loading conversations:", error);
+        } catch (error: any) {
+            console.error("Error loading conversations:", error?.message || error);
+            setConversations([]);
             setLoading(false);
         }
     };
@@ -200,8 +199,8 @@ export default function OrganizationMessagesPage() {
                                             className={`flex ${msg.sender_id === session?.user.id ? 'justify-end' : 'justify-start'}`}
                                         >
                                             <div className={`max-w-md p-4 rounded-2xl ${msg.sender_id === session?.user.id
-                                                    ? 'bg-indigo-500 text-white shadow-lg shadow-indigo-500/20'
-                                                    : 'bg-zinc-800 text-zinc-100'
+                                                ? 'bg-indigo-500 text-white shadow-lg shadow-indigo-500/20'
+                                                : 'bg-zinc-800 text-zinc-100'
                                                 }`}>
                                                 <p className="text-sm font-medium">{msg.content}</p>
                                                 <p className="text-[10px] opacity-40 mt-2 font-bold uppercase tracking-widest">
