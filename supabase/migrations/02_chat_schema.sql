@@ -3,7 +3,9 @@ CREATE TABLE IF NOT EXISTS messages (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   match_id UUID REFERENCES matches(id) ON DELETE CASCADE NOT NULL,
   sender_id UUID REFERENCES users(id) NOT NULL,
+  sender_role TEXT NOT NULL DEFAULT 'organization',
   content TEXT NOT NULL,
+  deleted_by UUID[] DEFAULT ARRAY[]::uuid[],
   created_at TIMESTAMPTZ DEFAULT now(),
   is_system_message BOOLEAN DEFAULT false
 );
@@ -62,3 +64,13 @@ CREATE POLICY "Participants can send messages" ON messages
         AND (r.client_id = auth.uid() OR p.user_id = auth.uid())
     )
   );
+
+-- Function to soft delete a message for a specific user
+CREATE OR REPLACE FUNCTION soft_delete_message(message_id UUID, user_id UUID)
+RETURNS VOID AS $$
+BEGIN
+    UPDATE messages
+    SET deleted_by = array_append(COALESCE(deleted_by, ARRAY[]::UUID[]), user_id)
+    WHERE id = message_id;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;

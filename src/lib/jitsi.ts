@@ -10,10 +10,26 @@ import crypto from "crypto";
 export function generateJitsiRoomId(
     userId: string,
     tenantId: string,
-    roomName?: string,
+    roomName: string = "chat",
     secretKey?: string
 ): string {
-    return `demo-room-${tenantId.substring(0, 4)}-${userId.substring(0, 4)}`;
+    const secret = secretKey || process.env.JITSI_SECRET_KEY || "default-secret-key";
+
+    // Sanitize room name
+    const sanitizedName = roomName.toLowerCase()
+        .replace(/[^a-z0-9]/g, "-")
+        .replace(/-+/g, "-")
+        .replace(/^-|-$/g, "");
+
+    const input = `${userId}:${tenantId}:${sanitizedName}`;
+
+    const hash = crypto
+        .createHmac("sha256", secret)
+        .update(input)
+        .digest("hex")
+        .substring(0, 12);
+
+    return `${sanitizedName}-${hash}`.toLowerCase();
 }
 
 

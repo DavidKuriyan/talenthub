@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
 
 /**
@@ -13,13 +13,20 @@ import Link from "next/link";
 export default function NavBar() {
     const [user, setUser] = useState<any>(null);
     const [loading, setLoading] = useState(false);
+    const [isInitialLoad, setIsInitialLoad] = useState(true);
     const router = useRouter();
+    const pathname = usePathname();
+
+    const isEngineerPage = pathname?.startsWith('/engineer');
+    const isOrganizationPage = pathname?.startsWith('/organization');
+    const isAuthPage = isEngineerPage || isOrganizationPage;
 
     useEffect(() => {
         // Check current session
         const checkSession = async () => {
             const { data: { session } } = await supabase.auth.getSession();
             setUser(session?.user || null);
+            setIsInitialLoad(false);
         };
         checkSession();
 
@@ -70,6 +77,8 @@ export default function NavBar() {
         }
     };
 
+    if (isInitialLoad) return <div className="w-16 h-8 animate-pulse bg-zinc-100 dark:bg-zinc-800 rounded-lg"></div>;
+
     return (
         <div className="flex items-center gap-4">
             {user ? (
@@ -86,12 +95,15 @@ export default function NavBar() {
                     </button>
                 </>
             ) : (
-                <Link
-                    href="/login"
-                    className="px-4 py-2 text-sm font-medium rounded-lg bg-zinc-900 dark:bg-zinc-50 text-white dark:text-zinc-900 hover:opacity-90 transition-opacity"
-                >
-                    Login
-                </Link>
+                // Only show Login button if NOT on an authenticated page
+                !isAuthPage && (
+                    <Link
+                        href="/login"
+                        className="px-4 py-2 text-sm font-medium rounded-lg bg-zinc-900 dark:bg-zinc-50 text-white dark:text-zinc-900 hover:opacity-90 transition-opacity"
+                    >
+                        Login
+                    </Link>
+                )
             )}
         </div>
     );

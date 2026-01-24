@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { fetchMessageHistory, subscribeToMessages, sendMessage as sendRealtimeMessage } from "@/lib/realtime";
+import ChatWindow from "@/components/chat/ChatWindow";
 
 /**
  * @feature ORGANIZATION_MESSAGING
@@ -12,13 +12,9 @@ import { fetchMessageHistory, subscribeToMessages, sendMessage as sendRealtimeMe
  */
 export default function OrganizationMessagesPage() {
     const [session, setSession] = useState<any>(null);
-    const [messages, setMessages] = useState<any[]>([]);
-    const [newMessage, setNewMessage] = useState("");
     const [conversations, setConversations] = useState<any[]>([]);
     const [selectedConversation, setSelectedConversation] = useState<any>(null);
     const [loading, setLoading] = useState(true);
-    const messagesEndRef = useRef<HTMLDivElement>(null);
-    const unsubscribeRef = useRef<any>(null);
     const router = useRouter();
 
     useEffect(() => {
@@ -80,57 +76,8 @@ export default function OrganizationMessagesPage() {
         }
     };
 
-    const selectConversation = async (conv: any) => {
-        try {
-            setSelectedConversation(conv);
-            const history = await fetchMessageHistory(conv.id);
-            setMessages(history);
-
-            // Cleanup previous subscription if any
-            if (unsubscribeRef.current) {
-                unsubscribeRef.current();
-            }
-
-            // Subscribe to real-time updates
-            const unsubscribe = subscribeToMessages(conv.id, (msg) => {
-                setMessages(prev => {
-                    if (prev.find(m => m.id === msg.id)) return prev;
-                    return [...prev, msg];
-                });
-                scrollToBottom();
-            });
-
-            unsubscribeRef.current = unsubscribe;
-        } catch (error) {
-            console.error("Error loading messages:", error);
-        }
-    };
-
-    useEffect(() => {
-        return () => {
-            if (unsubscribeRef.current) unsubscribeRef.current();
-        };
-    }, []);
-
-    const handleSendMessage = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!newMessage.trim() || !session || !selectedConversation) return;
-
-        try {
-            await sendRealtimeMessage(
-                selectedConversation.id,
-                session.user.id,
-                newMessage
-            );
-            setNewMessage("");
-            scrollToBottom();
-        } catch (error) {
-            console.error("Error sending message:", error);
-        }
-    };
-
-    const scrollToBottom = () => {
-        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    const selectConversation = (conv: any) => {
+        setSelectedConversation(conv);
     };
 
     if (loading) {
@@ -181,75 +128,15 @@ export default function OrganizationMessagesPage() {
                     </div>
 
                     {/* Chat Area */}
-                    <div className="flex-1 flex flex-col">
+                    <div className="flex-1 flex flex-col bg-zinc-950/20">
                         {selectedConversation ? (
-                            <>
-                                <div className="p-6 border-b border-white/5 flex justify-between items-center bg-zinc-900/50 backdrop-blur-xl">
-                                    <div>
-                                        <h3 className="font-bold text-lg">{selectedConversation.title}</h3>
-                                        <p className="text-xs text-zinc-500">Direct channel to engineer</p>
-                                    </div>
-                                    <div className="flex gap-4">
-                                        <button
-                                            onClick={() => router.push(`/organization/interviews?matchId=${selectedConversation.id}`)}
-                                            className="px-4 py-2 bg-indigo-500 text-white rounded-xl font-bold text-xs hover:scale-105 transition-all flex items-center gap-2"
-                                        >
-                                            📹 Start Video Call
-                                        </button>
-                                    </div>
-                                </div>
-
-                                <div className="flex-1 overflow-y-auto p-8 space-y-6 bg-zinc-950/20">
-                                    {messages.map((msg, idx) => {
-                                        const isMe = msg.sender_id === session?.user.id;
-                                        return (
-                                            <div
-                                                key={idx}
-                                                className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}
-                                            >
-                                                <div className={`flex flex-col ${isMe ? 'items-end' : 'items-start'} max-w-[80%]`}>
-                                                    {!isMe && (
-                                                        <span className="text-[10px] font-black uppercase tracking-widest text-zinc-500 mb-1 ml-2">
-                                                            {selectedConversation.engineerName}
-                                                        </span>
-                                                    )}
-                                                    <div className={`p-4 shadow-sm ${isMe
-                                                        ? 'bg-indigo-600 text-white rounded-2xl rounded-tr-sm'
-                                                        : 'bg-zinc-800 text-zinc-100 rounded-2xl rounded-tl-sm border border-white/5'
-                                                        }`}>
-                                                        <p className="text-sm font-medium leading-relaxed">{msg.content}</p>
-                                                        <div className={`flex items-center gap-1 mt-2 ${isMe ? 'text-indigo-200' : 'text-zinc-500'}`}>
-                                                            <span className="text-[10px] font-bold uppercase tracking-widest">
-                                                                {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                                            </span>
-                                                            {isMe && <span className="text-[10px]">✓</span>}
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        );
-                                    })}
-                                    <div ref={messagesEndRef} />
-                                </div>
-
-                                <form onSubmit={handleSendMessage} className="p-6 border-t border-white/5 bg-zinc-900/50">
-                                    <div className="flex gap-4">
-                                        <input
-                                            type="text"
-                                            value={newMessage}
-                                            onChange={(e) => setNewMessage(e.target.value)}
-                                            placeholder="Type a secure message..."
-                                            className="flex-1 px-6 py-4 rounded-2xl bg-zinc-800 border border-white/5 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
-                                        />
-                                        <button
-                                            type="submit"
-                                            className="px-8 py-4 bg-indigo-500 text-white rounded-2xl font-bold text-sm hover:bg-indigo-600 transition-all shadow-lg shadow-indigo-500/20"
-                                        >
-                                            Send
-                                        </button>
-                                    </div>
-                                </form>
-                            </>
+                            <ChatWindow
+                                matchId={selectedConversation.id}
+                                currentUserId={session?.user.id}
+                                currentUserName={session?.user.user_metadata?.full_name || 'Organization'}
+                                otherUserName={selectedConversation.engineerName}
+                                currentUserRole="organization"
+                            />
                         ) : (
                             <div className="flex-1 flex flex-col items-center justify-center text-center p-8">
                                 <div className="w-24 h-24 bg-indigo-500/10 rounded-full flex items-center justify-center text-5xl mb-6">💬</div>

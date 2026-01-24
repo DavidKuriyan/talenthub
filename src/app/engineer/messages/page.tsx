@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { fetchMessageHistory, subscribeToMessages, sendMessage as sendRealtimeMessage } from "@/lib/realtime";
+import ChatWindow from "@/components/chat/ChatWindow";
 
 /**
  * @feature REALTIME_MESSAGING
@@ -12,13 +12,10 @@ import { fetchMessageHistory, subscribeToMessages, sendMessage as sendRealtimeMe
  */
 export default function MessagesPage() {
     const [session, setSession] = useState<any>(null);
-    const [messages, setMessages] = useState<any[]>([]);
-    const [newMessage, setNewMessage] = useState("");
     const [conversations, setConversations] = useState<any[]>([]);
     const [selectedConversation, setSelectedConversation] = useState<string | null>(null);
+    const [selectedConversationData, setSelectedConversationData] = useState<any>(null);
     const [loading, setLoading] = useState(true);
-    const messagesEndRef = useRef<HTMLDivElement>(null);
-    const unsubscribeRef = useRef<any>(null);
     const router = useRouter();
 
     useEffect(() => {
@@ -94,61 +91,9 @@ export default function MessagesPage() {
         }
     };
 
-    const loadMessages = async (matchId: string) => {
-        try {
-            setSelectedConversation(matchId);
-            const history = await fetchMessageHistory(matchId);
-            setMessages(history);
-
-            // Cleanup previous subscription if any
-            if (unsubscribeRef.current) {
-                unsubscribeRef.current();
-            }
-
-            // Subscribe to real-time updates
-            const unsubscribe = subscribeToMessages(matchId, (msg) => {
-                setMessages(prev => {
-                    // Avoid duplicates
-                    if (prev.find(m => m.id === msg.id)) return prev;
-                    return [...prev, msg];
-                });
-                scrollToBottom();
-            });
-
-            unsubscribeRef.current = unsubscribe;
-        } catch (error) {
-            console.error("Error loading messages:", error);
-        }
-    };
-
-    // Cleanup subscription on unmount
-    useEffect(() => {
-        return () => {
-            if (unsubscribeRef.current) {
-                unsubscribeRef.current();
-            }
-        };
-    }, []);
-
-    const sendMessage = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!newMessage.trim() || !session || !selectedConversation) return;
-
-        try {
-            await sendRealtimeMessage(
-                selectedConversation,
-                session.user.id,
-                newMessage
-            );
-            setNewMessage("");
-            scrollToBottom();
-        } catch (error) {
-            console.error("Error sending message:", error);
-        }
-    };
-
-    const scrollToBottom = () => {
-        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    const handleSelectConversation = (conv: any) => {
+        setSelectedConversation(conv.id);
+        setSelectedConversationData(conv);
     };
 
     if (loading) {
@@ -162,7 +107,7 @@ export default function MessagesPage() {
     return (
         <div className="min-h-screen bg-gradient-to-br from-emerald-900 via-teal-800 to-emerald-900">
             <div className="max-w-7xl mx-auto p-6">
-                <Link href="/engineer/profile" className="text-emerald-300 hover:text-emerald-100 text-sm mb-4 inline-block">
+                <Link href="/engineer/profile" className="text-emerald-300 hover:text-emerald-100 text-sm mb-4 inline-block font-bold">
                     ← Back to Profile
                 </Link>
 
@@ -171,111 +116,38 @@ export default function MessagesPage() {
                         {/* Conversations Sidebar */}
                         <div className="w-80 border-r border-emerald-700/30 overflow-y-auto">
                             <div className="p-4 border-b border-emerald-700/30">
-                                <h2 className="text-lg font-bold text-white">Messages</h2>
+                                <h2 className="text-lg font-bold text-white tracking-tight">Messages</h2>
                             </div>
                             <div className="divide-y divide-emerald-700/30">
                                 {conversations.map((conv) => (
                                     <div
                                         key={conv.id}
-                                        onClick={() => loadMessages(conv.id)}
+                                        onClick={() => handleSelectConversation(conv)}
                                         className={`p-4 cursor-pointer hover:bg-white/5 transition-colors ${selectedConversation === conv.id ? 'bg-white/10' : ''
                                             }`}
                                     >
-                                        <p className="font-medium text-white">{conv.name}</p>
-                                        <p className="text-xs text-emerald-400 font-bold uppercase tracking-widest">{conv.company}</p>
-                                        <p className="text-sm text-emerald-300 truncate opacity-60">{conv.lastMessage}</p>
+                                        <p className="font-bold text-white mb-1 leading-tight">{conv.name}</p>
+                                        <p className="text-[10px] text-emerald-400 font-black uppercase tracking-widest">{conv.company}</p>
                                     </div>
                                 ))}
                             </div>
                         </div>
 
                         {/* Messages Area */}
-                        <div className="flex-1 flex flex-col">
+                        <div className="flex-1 flex flex-col bg-black/20">
                             {selectedConversation ? (
-                                <>
-                                    <div className="p-4 border-b border-white/10 flex justify-between items-center bg-white/5">
-                                        <div>
-                                            <h3 className="font-bold text-white text-lg">
-                                                {conversations.find(c => c.id === selectedConversation)?.name}
-                                            </h3>
-                                            <p className="text-xs text-emerald-400 font-bold uppercase tracking-widest">
-                                                {conversations.find(c => c.id === selectedConversation)?.company}
-                                            </p>
-                                        </div>
-                                        <Link
-                                            href="/engineer/interviews"
-                                            className="px-4 py-2 bg-emerald-600 text-white rounded-xl text-xs font-bold hover:bg-emerald-700 transition-all flex items-center gap-2"
-                                        >
-                                            📹 Join Interview
-                                        </Link>
-                                    </div>
-
-                                    {/* Messages */}
-                                    <div className="flex-1 overflow-y-auto p-6 space-y-6 bg-black/10">
-                                        {messages.length === 0 ? (
-                                            <div className="flex flex-col items-center justify-center h-full opacity-40">
-                                                <div className="text-6xl mb-4">💬</div>
-                                                <p className="text-white text-lg font-bold">No messages yet</p>
-                                                <p className="text-emerald-300 text-sm">Start the conversation!</p>
-                                            </div>
-                                        ) : (
-                                            messages.map((msg, idx) => {
-                                                const isMe = msg.sender_id === session?.user.id;
-                                                return (
-                                                    <div
-                                                        key={idx}
-                                                        className={`flex flex-col ${isMe ? 'items-end' : 'items-start'}`}
-                                                    >
-                                                        <div className={`flex flex-col ${isMe ? 'items-end' : 'items-start'} max-w-[85%]`}>
-                                                            {!isMe && (
-                                                                <span className="text-[10px] font-black uppercase tracking-widest text-emerald-400 mb-1 ml-1">
-                                                                    Recruiter
-                                                                </span>
-                                                            )}
-                                                            <div className={`px-5 py-3 shadow-xl ${isMe
-                                                                ? 'bg-gradient-to-br from-emerald-600 to-teal-700 text-white rounded-2xl rounded-tr-sm'
-                                                                : 'bg-zinc-800 text-zinc-100 rounded-2xl rounded-tl-sm border border-emerald-700/20'
-                                                                }`}>
-                                                                <p className="text-sm font-medium leading-relaxed">{msg.content}</p>
-                                                                <div className={`flex items-center gap-2 mt-2 ${isMe ? 'text-emerald-100/60' : 'text-zinc-500'}`}>
-                                                                    <span className="text-[9px] font-black uppercase tracking-widest">
-                                                                        {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                                                    </span>
-                                                                    {isMe && <span className="text-[9px] font-black">DELIVERED</span>}
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                );
-                                            })
-                                        )}
-                                        <div ref={messagesEndRef} />
-                                    </div>
-
-                                    {/* Message Input */}
-                                    <form onSubmit={sendMessage} className="p-4 border-t border-emerald-700/30">
-                                        <div className="flex gap-2">
-                                            <input
-                                                type="text"
-                                                value={newMessage}
-                                                onChange={(e) => setNewMessage(e.target.value)}
-                                                placeholder="Type a message..."
-                                                className="flex-1 px-4 py-2 rounded-lg bg-white/10 border border-emerald-700/30 text-white placeholder-emerald-300 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                                            />
-                                            <button
-                                                type="submit"
-                                                className="px-6 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors font-medium"
-                                            >
-                                                Send
-                                            </button>
-                                        </div>
-                                    </form>
-                                </>
+                                <ChatWindow
+                                    matchId={selectedConversation}
+                                    currentUserId={session?.user.id}
+                                    currentUserName={session?.user.user_metadata?.full_name || 'Engineer'}
+                                    otherUserName={selectedConversationData?.company || 'Recruiter'}
+                                    currentUserRole="engineer"
+                                />
                             ) : (
                                 <div className="flex-1 flex items-center justify-center">
-                                    <div className="text-center">
+                                    <div className="text-center opacity-50">
                                         <div className="text-6xl mb-4">💬</div>
-                                        <p className="text-white text-lg">Select a conversation</p>
+                                        <p className="text-white text-lg font-bold">Select a conversation</p>
                                         <p className="text-emerald-300 text-sm">Choose from the list to start chatting</p>
                                     </div>
                                 </div>
@@ -285,8 +157,8 @@ export default function MessagesPage() {
                 </div>
 
                 <div className="mt-4 bg-emerald-500/10 border border-emerald-500/30 rounded-2xl p-4">
-                    <p className="text-emerald-200 text-sm">
-                        💡 <strong>Real-time enabled:</strong> Messages update automatically using Supabase Realtime
+                    <p className="text-emerald-200 text-sm flex items-center gap-2">
+                        <span className="text-xs">💡</span> <strong>Real-time enabled:</strong> Messages sync automatically using Supabase Realtime
                     </p>
                 </div>
             </div>

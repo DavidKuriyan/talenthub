@@ -29,6 +29,7 @@ const config = {
       statements: 70,
     },
   },
+  modulePathIgnorePatterns: ['<rootDir>/.next/', '<rootDir>/.next/standalone/'],
 };
 
 module.exports = config;

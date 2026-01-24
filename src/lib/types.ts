@@ -115,7 +115,10 @@ export interface Database {
                     id: string
                     match_id: string
                     sender_id: string
+                    sender_role: 'organization' | 'engineer'
                     content: string
+                    deleted_by: string[] | null
+                    tenant_id: string | null
                     created_at: string
                     is_system_message: boolean
                 }
@@ -123,7 +126,10 @@ export interface Database {
                     id?: string
                     match_id: string
                     sender_id: string
+                    sender_role?: 'organization' | 'engineer'
                     content: string
+                    deleted_by?: string[] | null
+                    tenant_id?: string | null
                     created_at?: string
                     is_system_message?: boolean
                 }
@@ -131,7 +137,10 @@ export interface Database {
                     id?: string
                     match_id?: string
                     sender_id?: string
+                    sender_role?: 'organization' | 'engineer'
                     content?: string
+                    deleted_by?: string[] | null
+                    tenant_id?: string | null
                     created_at?: string
                     is_system_message?: boolean
                 }
