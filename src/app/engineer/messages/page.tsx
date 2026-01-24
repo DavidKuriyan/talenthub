@@ -50,31 +50,39 @@ export default function MessagesPage() {
                 return;
             }
 
-            // Fetch matches (conversations) - Relational join now works!
-            const { data: matchesData, error } = await supabase
-                .from("matches")
+            // Fetch matches (conversations) - Simple query without nested tenant join
+            const { data: matchesData, error } = await (supabase
+                .from("matches") as any)
                 .select(`
                     id,
                     requirement_id,
                     requirements (
                         title,
                         tenant_id
-                    ),
-                    tenants (
-                        name
                     )
                 `)
                 .eq("profile_id", (profile as any).id);
 
             if (error) throw error;
 
+            // Fetch tenant names separately to avoid schema cache issues
+            const tenantIds = [...new Set((matchesData || []).map((m: any) => m.requirements?.tenant_id).filter(Boolean))];
+            let tenantsMap: Record<string, string> = {};
+
+            if (tenantIds.length > 0) {
+                const { data: tenants } = await supabase.from("tenants").select("id, name").in("id", tenantIds);
+                if (tenants) {
+                    tenantsMap = tenants.reduce((acc: any, t: any) => ({ ...acc, [t.id]: t.name }), {});
+                }
+            }
+
             // Format conversations with fallback title
             const formattedConversations = (matchesData || []).map((m: any) => ({
                 id: m.id,
                 name: m.requirements?.title || `Job Match #${m.id?.slice(0, 8)}`,
-                company: m.tenants?.name || "TalentHub Partner",
+                company: tenantsMap[m.requirements?.tenant_id] || "TalentHub Partner",
                 lastMessage: "Chat about this role",
-                roomName: `${m.requirements?.tenant_id}_${m.id}` // Derive room name
+                roomName: `${m.requirements?.tenant_id}_${m.id}`
             }));
 
             setConversations(formattedConversations);

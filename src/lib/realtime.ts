@@ -50,22 +50,26 @@ let pollingInterval: NodeJS.Timeout;
 function startPolling(matchId: string, onNewMessage: (message: Message) => void) {
     if (pollingInterval) clearInterval(pollingInterval);
 
-    // Simple set of seen message IDs to avoid duplicates
-    let seenIds = new Set<string>();
+    // Track seen message IDs to avoid duplicates
+    const seenIds = new Set<string>();
 
     pollingInterval = setInterval(async () => {
-        // Fetch only last 5 messages to check for new ones
-        const latestInfo = await fetchMessageHistory(matchId, 5, 0);
-        if (latestInfo && latestInfo.length > 0) {
-            latestInfo.forEach(msg => {
-                // If the message is newer than valid threshold (e.g. 5 seconds) and we haven't processed it
-                // Actually, simplest is just to emit all distinct ones and let UI dedup
-                // but fetchMessageHistory returns history.
-                // We rely on the UI to deduplicate based on ID.
-                onNewMessage(msg as Message);
-            });
+        try {
+            // Fetch only last 10 messages to check for new ones
+            const latestInfo = await fetchMessageHistory(matchId, 10, 0);
+            if (latestInfo && latestInfo.length > 0) {
+                latestInfo.forEach((msg: any) => {
+                    // Only emit if we haven't seen this message ID before
+                    if (msg.id && !seenIds.has(msg.id)) {
+                        seenIds.add(msg.id);
+                        onNewMessage(msg as Message);
+                    }
+                });
+            }
+        } catch (err) {
+            console.error("Polling error:", err);
         }
-    }, 2000);
+    }, 2000); // Poll every 2 seconds
 }
 
 /**

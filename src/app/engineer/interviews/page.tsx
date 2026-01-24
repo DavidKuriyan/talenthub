@@ -23,8 +23,10 @@ export default async function EngineerInterviewsPage() {
         .single();
 
     let interviews: any[] = [];
+    let tenantsMap: Record<string, string> = {};
+
     if (profile && (profile as any).id) {
-        // Fetch interviews via matches linked to this profile
+        // Fetch interviews via matches linked to this profile - NO nested tenant join
         const { data } = await supabase
             .from("interviews")
             .select(`
@@ -33,10 +35,8 @@ export default async function EngineerInterviewsPage() {
                     id,
                     profile_id,
                     requirements (
-                        title
-                    ),
-                    tenants (
-                        name
+                        title,
+                        tenant_id
                     )
                 )
             `)
@@ -44,6 +44,15 @@ export default async function EngineerInterviewsPage() {
             .order("scheduled_at", { ascending: true });
 
         interviews = data || [];
+
+        // Fetch tenant names separately to avoid schema cache issues
+        const tenantIds = [...new Set(interviews.map((i: any) => i.matches?.requirements?.tenant_id).filter(Boolean))];
+        if (tenantIds.length > 0) {
+            const { data: tenants } = await supabase.from("tenants").select("id, name").in("id", tenantIds);
+            if (tenants) {
+                tenantsMap = tenants.reduce((acc: any, t: any) => ({ ...acc, [t.id]: t.name }), {});
+            }
+        }
     }
 
     const upcomingInterviews = (interviews as any[]).filter(i => new Date(i.scheduled_at) > new Date()) || [];
@@ -94,7 +103,7 @@ export default async function EngineerInterviewsPage() {
                                                         {interview.matches?.requirements?.title || "Interview"}
                                                     </h3>
                                                     <p className="text-emerald-400 font-bold text-xs uppercase tracking-widest mb-2">
-                                                        Org: {interview.matches?.tenants?.name || "TalentHub Partner"}
+                                                        Org: {tenantsMap[interview.matches?.requirements?.tenant_id] || "TalentHub Partner"}
                                                     </p>
                                                     <p className="text-emerald-200 text-sm">
                                                         📅 {new Date(interview.scheduled_at).toLocaleString()}
@@ -135,7 +144,7 @@ export default async function EngineerInterviewsPage() {
                                                         {interview.matches?.requirements?.title || "Interview"}
                                                     </h3>
                                                     <p className="text-emerald-400 font-bold text-[10px] uppercase tracking-widest mb-1">
-                                                        Org: {interview.matches?.tenants?.name || "TalentHub Partner"}
+                                                        Org: {tenantsMap[interview.matches?.requirements?.tenant_id] || "TalentHub Partner"}
                                                     </p>
                                                     <p className="text-emerald-200 text-sm">
                                                         📅 {new Date(interview.scheduled_at).toLocaleString()}
