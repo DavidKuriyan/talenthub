@@ -2,7 +2,8 @@
 
 import { useEffect, useState, useRef, useCallback } from "react"
 import { supabase } from "@/lib/supabase"
-import { subscribeToMessages, sendMessage, deleteMessage } from "@/lib/realtime"
+import { sendMessage, deleteMessage } from "@/lib/realtime"
+import { useRealtime } from "@/providers/RealtimeProvider"
 import { MessageBubble } from "@/components/chat/MessageBubble"
 import { useParams, useRouter } from "next/navigation"
 import Link from "next/link"
@@ -24,10 +25,14 @@ export default function ChatPage() {
     const scrollRef = useRef<HTMLDivElement>(null)
     const router = useRouter()
 
+    // Realtime Context
+    const { subscribe } = useRealtime();
+
     const filterDeleted = useCallback((msgs: any[], userId: string) => {
         return msgs.filter(m => !m.deleted_by?.includes(userId))
     }, [])
 
+    // 1. Initial Load
     useEffect(() => {
         const init = async () => {
             const { data: { session } } = await supabase.auth.getSession()
@@ -37,8 +42,6 @@ export default function ChatPage() {
             }
             setUser(session.user)
 
-            // Initial Fetch with profiles
-            // Note: We fetch messages first, then profiles for the senders to avoid complex joins if relationships are missing
             const { data: messagesData, error: messagesError } = await supabase
                 .from("messages")
                 .select("*")
@@ -48,7 +51,6 @@ export default function ChatPage() {
             if (messagesError) {
                 console.error("[ChatPage] Fetch error:", messagesError)
             } else if (messagesData) {
-                // Fetch profiles for unique senders
                 const senderIds = Array.from(new Set(messagesData.map(m => m.sender_id)))
                 const { data: profilesData } = await supabase
                     .from("profiles")
@@ -68,13 +70,21 @@ export default function ChatPage() {
             setLoading(false)
             setTimeout(() => scrollRef.current?.scrollIntoView({ behavior: 'smooth' }), 100)
         }
-
         init()
+    }, [matchId, router, filterDeleted])
 
-        const unsubscribe = subscribeToMessages({
-            matchId,
-            onInsert: async (msg: any) => {
-                // Fetch profile for new message sender if needed
+
+    // 2. Realtime Subscriptions
+    useEffect(() => {
+        if (!user || !matchId) return;
+
+        // Insert
+        subscribe({
+            table: 'messages',
+            filter: `match_id=eq.${matchId}`,
+            event: 'INSERT',
+            onChange: async (payload) => {
+                const msg = payload.new;
                 let senderName = "Unknown User"
                 if (msg.sender_id) {
                     const { data } = await supabase.from("profiles").select("full_name").eq("id", msg.sender_id).single()
@@ -91,90 +101,35 @@ export default function ChatPage() {
                     }]
                 })
                 setTimeout(() => scrollRef.current?.scrollIntoView({ behavior: 'smooth' }), 100)
-            },
-            onUpdate: (updatedMsg: any) => {
+            }
+        });
+
+        // Update (Soft Delete)
+        subscribe({
+            table: 'messages',
+            filter: `match_id=eq.${matchId}`,
+            event: 'UPDATE',
+            onChange: (payload) => {
+                const updatedMsg = payload.new;
                 setMessages((prev) => {
                     const filtered = prev.map(m => m.id === updatedMsg.id ? {
                         ...updatedMsg,
                         is_me: updatedMsg.sender_id === user?.id,
-                        sender_name: m.sender_name // preserve name
+                        sender_name: m.sender_name
                     } : m)
                     return filterDeleted(filtered, user?.id || "")
                 })
             }
-        })
+        });
 
+    }, [matchId, user, subscribe, filterDeleted]);
+
+    // 3. Click Listeners
+    useEffect(() => {
         const handleClickOutside = () => setContextMenu(null)
         window.addEventListener('click', handleClickOutside)
-
-        return () => {
-            unsubscribe()
-            window.removeEventListener('click', handleClickOutside)
-        }
-    }, [matchId, user?.id, router, filterDeleted])
-
-
-
-    useEffect(() => {
-        // ... (keep init logic)
-
-        // Subscription using the robust lib
-        const unsubscribe = subscribeToMessages(
-            matchId,
-            (msg: any) => { // onNewMessage
-                // Re-use existing logic for onInsert logic
-                // We need to adapt the signature slightly or just inline key parts
-
-                // Fetch profile for new message sender if needed
-                let senderName = "Unknown User"
-                // ... (profile fetch logic)
-                // Note: subscribeToMessages in lib/realtime.ts returns a function that returns a promise.
-
-                // Simplified adapter:
-                const handleNewMsg = async (m: any) => {
-                    let name = "Unknown User";
-                    if (m.sender_id) {
-                        // Check cache or fetch
-                        const { data } = await supabase.from("profiles").select("full_name").eq("id", m.sender_id).single();
-                        if (data) name = data.full_name;
-                    }
-
-                    setMessages((prev) => {
-                        if (prev.find((existing: any) => existing.id === m.id)) return prev
-                        if (m.deleted_by?.includes(user?.id)) return prev
-                        return [...prev, {
-                            ...m,
-                            is_me: m.sender_id === user?.id,
-                            sender_name: name
-                        }]
-                    });
-                    setTimeout(() => scrollRef.current?.scrollIntoView({ behavior: 'smooth' }), 100)
-                };
-                handleNewMsg(msg);
-            },
-            {
-                onMessageUpdate: (updatedMsg: any) => {
-                    setMessages((prev) => {
-                        const filtered = prev.map(m => m.id === updatedMsg.id ? {
-                            ...updatedMsg,
-                            is_me: updatedMsg.sender_id === user?.id,
-                            sender_name: m.sender_name // preserve name
-                        } : m)
-                        return filterDeleted(filtered, user?.id || "")
-                    })
-                },
-                currentUserId: user?.id
-            }
-        );
-
-        return () => {
-            // unsubscribe is an async function returned directly
-            // We can call it and voids its promise result
-            if (typeof unsubscribe === 'function') {
-                unsubscribe();
-            }
-        }
-    }, [matchId, user?.id, router, filterDeleted]);
+        return () => window.removeEventListener('click', handleClickOutside)
+    }, []);
 
 
     const handleSend = async (e: React.FormEvent) => {
@@ -284,9 +239,7 @@ export default function ChatPage() {
                                     <span className="text-[10px] text-zinc-500 ml-1 mb-1 font-medium">{msg.sender_name}</span>
                                 )}
                                 <MessageBubble message={msg} />
-                                <span className={`text-[10px] text-zinc-600 mt-1 ${msg.is_me ? 'text-right' : 'text-left'} px-1`}>
-                                    {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                </span>
+
                             </div>
                         ))
                     )}

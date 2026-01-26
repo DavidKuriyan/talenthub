@@ -17,5 +17,12 @@ export function MessageBubble({ message }: any) {
             // Them (Engineer): Dark Gray + Emerald Border
             : "mr-auto bg-zinc-800 text-zinc-100 border-l-4 border-emerald-500 shadow-md rounded-tl-sm"
 
-    return <div className={`${base} ${styles}`}>{message.content}</div>
+    return (
+        <div className={`${base} ${styles}`}>
+            <span className="block">{message.content}</span>
+            <span className="block text-[10px] opacity-70 mt-1 text-right">
+                {new Date(message.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+            </span>
+        </div>
+    )
 }

@@ -3,9 +3,9 @@
 // require('@testing-library/jest-dom')
 
 // Mock environment variables
-process.env.NEXT_PUBLIC_SUPABASE_URL = 'https://test.supabase.co'
-process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = 'test-key'
-process.env.JITSI_SECRET_KEY = 'test-jitsi-secret'
+process.env.NEXT_PUBLIC_SUPABASE_URL = "https://test.supabase.co";
+process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = "test-key";
+process.env.JITSI_SECRET_KEY = "test-jitsi-secret";
 
 // Mock window.matchMedia (only needed for jsdom environment)
 // Object.defineProperty(window, 'matchMedia', {
@@ -24,29 +24,29 @@ process.env.JITSI_SECRET_KEY = 'test-jitsi-secret'
 
 // Mock IntersectionObserver
 global.IntersectionObserver = class IntersectionObserver {
-  constructor() { }
-  disconnect() { }
-  observe() { }
+  constructor() {}
+  disconnect() {}
+  observe() {}
   takeRecords() {
-    return []
+    return [];
   }
-  unobserve() { }
-}
+  unobserve() {}
+};
 
 // Suppress console errors in tests
-const originalError = console.error
+const originalError = console.error;
 beforeAll(() => {
   console.error = (...args) => {
     if (
-      typeof args[0] === 'string' &&
-      args[0].includes('Warning: ReactDOM.render')
+      typeof args[0] === "string" &&
+      args[0].includes("Warning: ReactDOM.render")
     ) {
-      return
+      return;
     }
-    originalError.call(console, ...args)
-  }
-})
+    originalError.call(console, ...args);
+  };
+});
 
 afterAll(() => {
-  console.error = originalError
-})
+  console.error = originalError;
+});

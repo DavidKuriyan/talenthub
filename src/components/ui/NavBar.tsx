@@ -44,37 +44,14 @@ export default function NavBar() {
     const handleLogout = async () => {
         if (loading) return;
         setLoading(true);
+
         try {
-            console.log("[NavBar] Initiating global logout...");
-
-            // 1. Sign out from Supabase (scope: local and global)
-            await supabase.auth.signOut({ scope: 'global' });
-
-            // 2. Clear state and storage manually to be safe
-            if (typeof window !== 'undefined') {
-                window.localStorage.clear();
-                window.sessionStorage.clear();
-
-                // Nuke all cookies
-                document.cookie.split(";").forEach((c) => {
-                    document.cookie = c
-                        .replace(/^ +/, "")
-                        .replace(/=.*/, "=;expires=Thu, 01 Jan 1970 00:00:00 UTC;path=/");
-                });
-            }
-
-            // 3. Determine redirect target
-            let targetUrl = "/login"; // Default
-            if (pathname?.startsWith("/organization")) {
-                targetUrl = "/organization/login";
-            }
-
-            console.log(`[NavBar] Redirecting to ${targetUrl}`);
-            // Force hard reload to clear any in-memory state
-            window.location.href = targetUrl;
+            await supabase.auth.signOut();
+            router.push("/login");
         } catch (error: any) {
             console.error("Logout failure:", error?.message || error);
-            window.location.href = "/login";
+            // Force redirect anyway
+            router.push("/login");
         } finally {
             setLoading(false);
         }
