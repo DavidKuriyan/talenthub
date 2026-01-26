@@ -220,74 +220,40 @@ export async function deleteMessage(messageId: string, userId: string) {
     throw new Error("Message ID and User ID are required for deletion");
   }
 
-  const { error } = await (supabase as any)
-    .rpc("soft_delete_message", {
-      message_id: messageId,
-      user_id: userId
-    });
+  // 1. Fetch current array safely
+  const { data: current, error: fetchError } = await (supabase
+    .from('messages')
+    .select('deleted_for')
+    .eq('id', messageId)
+    .single() as any);
 
-  if (error) {
-    // Fallback: If RPC is missing, do manual update
-    if (error.code === '42883' || error.code === 'PGRST202') { // undefined_function or similar
-      console.warn("[Realtime] 'soft_delete_message' RPC missing, using manual fallback...");
+  if (fetchError) {
+    console.error("[Realtime] Fetch failed before delete:", fetchError);
+    throw fetchError;
+  }
 
-      // 1. Fetch current row (using * to match the implementation in fetchMessageHistory that works)
-      const { data: current, error: fetchError } = await (supabase
-        .from('messages')
-        .select('*')
-        .eq('id', messageId)
-        .single() as any);
+  const currentDeletedFor = (current as any)?.deleted_for || [];
 
-      if (fetchError) {
-        if (fetchError.code === 'PGRST116') {
-          // Row not found, treat as already deleted
-          return true;
-        }
-        console.error("[Realtime] Fallback fetch failed:", JSON.stringify(fetchError, null, 2));
-        throw fetchError;
-      }
+  // 2. Prevent duplicate entries
+  if (Array.isArray(currentDeletedFor) && currentDeletedFor.includes(userId)) {
+    return true;
+  }
 
-      const currentDeletedFor = (current as any)?.deleted_for || [];
-      if (Array.isArray(currentDeletedFor) && currentDeletedFor.includes(userId))
-        return true; // Already deleted
+  const newDeletedFor = Array.isArray(currentDeletedFor)
+    ? [...currentDeletedFor, userId]
+    : [userId];
 
-      const newDeletedFor = Array.isArray(currentDeletedFor)
-        ? [...currentDeletedFor, userId]
-        : [userId];
+  // 3. Realtime-safe update
+  const { error: updateError } = await (supabase
+    .from('messages')
+    .update({
+      deleted_for: newDeletedFor,
+    })
+    .eq('id', messageId) as any);
 
-      // 2. Update array
-      const { error: updateError } = await (supabase
-        .from("messages")
-        .update({
-          deleted_for: newDeletedFor,
-        } as any)
-        .eq("id", messageId) as any);
-
-      if (updateError) {
-        // specific handling for missing column
-        if (updateError.code === "42703") {
-          console.error(
-            "[Realtime] 'deleted_for' column missing. Run migration.",
-          );
-          // Depending on requirements, we might just swallow this or alert user
-          throw new Error("Cannot delete message: Schema incompatible");
-        }
-        console.error(
-          "[Realtime] Fallback update failed:",
-          JSON.stringify(updateError, null, 2),
-        );
-        throw updateError;
-      }
-      return true;
-    }
-
-    console.error("[Realtime] Error deleting message:", {
-      message: error.message,
-      code: error.code,
-      details: error.details,
-      hint: error.hint,
-    });
-    throw error;
+  if (updateError) {
+    console.error("[Realtime] Delete update failed:", updateError);
+    throw updateError;
   }
 
   return true;

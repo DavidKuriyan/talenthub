@@ -46,21 +46,35 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
 
         // Avoid duplicate subscriptions
         if (channelsRef.current.has(channelKey)) {
-            console.log(`[Realtime] Already subscribed to ${channelKey}`);
+            console.log(`[Realtime] ⚠️ Already subscribed to ${channelKey}`);
             return channelKey;
         }
 
-        console.log(`[Realtime] Subscribing to ${channelKey}`);
+        console.log(`[Realtime] 🔌 Subscribing to ${channelKey}`);
+        console.log(`[Realtime] 📋 Config:`, { table, filter, event, schema: 'public' });
 
         const channel = supabase
             .channel(channelKey)
             .on(
                 'postgres_changes',
                 { event: event as any, schema: 'public', table, filter },
-                (payload) => onChange(payload)
+                (payload) => {
+                    console.log(`[Realtime] 📨 Event received for ${channelKey}:`, payload);
+                    onChange(payload);
+                }
             )
-            .subscribe((status) => {
-                console.log(`[Realtime] Status for ${channelKey}: ${status}`);
+            .subscribe((status, err) => {
+                console.log(`[Realtime] 📡 Status for ${channelKey}: ${status}`);
+                if (err) {
+                    console.error(`[Realtime] ❌ Error for ${channelKey}:`, err);
+                }
+                if (status === 'SUBSCRIBED') {
+                    console.log(`[Realtime] ✅ Successfully subscribed to ${channelKey}`);
+                } else if (status === 'CHANNEL_ERROR') {
+                    console.error(`[Realtime] ❌ Channel error for ${channelKey}`);
+                } else if (status === 'TIMED_OUT') {
+                    console.error(`[Realtime] ⏱️ Timeout for ${channelKey}`);
+                }
             });
 
         channelsRef.current.set(channelKey, channel);

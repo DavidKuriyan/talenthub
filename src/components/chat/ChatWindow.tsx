@@ -13,7 +13,7 @@ interface Message {
     content: string;
     created_at: string;
     is_system_message?: boolean;
-    deleted_by?: string[] | null;
+    deleted_for?: string[] | null;
     read_at?: string | null;
 }
 

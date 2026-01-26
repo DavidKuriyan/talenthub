@@ -3,7 +3,8 @@
 import { useEffect, useState, useRef, useCallback } from "react"
 import { supabase } from "@/lib/supabase"
 import { sendMessage, deleteMessage } from "@/lib/realtime"
-import { useRealtime } from "@/providers/RealtimeProvider"
+// import { useRealtime } from "@/providers/RealtimeProvider"
+import { useMessagesRealtime } from "@/hooks/useMessagesRealtime"
 import { MessageBubble } from "@/components/chat/MessageBubble"
 import { useParams, useRouter } from "next/navigation"
 import Link from "next/link"
@@ -26,7 +27,16 @@ export default function ChatPage() {
     const router = useRouter()
 
     // Realtime Context - must be at top level
-    const { subscribe, unsubscribe } = useRealtime();
+    // Realtime Context - must be at top level
+    // const realtime = useRealtime(); // CLEANUP: Using specialized useMessagesRealtime hook instead
+    // const subscribeRef = useRef(realtime.subscribe);
+    // const unsubscribeRef = useRef(realtime.unsubscribe);
+
+    // Keep refs updated
+    // useEffect(() => {
+    //     subscribeRef.current = realtime.subscribe;
+    //     unsubscribeRef.current = realtime.unsubscribe;
+    // }, [realtime]);
 
     // Profile cache to avoid redundant fetches
     const profileCacheRef = useRef<Map<string, { full_name: string; role: string }>>(new Map());
@@ -96,61 +106,52 @@ export default function ChatPage() {
     }, [matchId, router, filterDeleted])
 
 
-    // 2. Realtime Subscriptions
-    useEffect(() => {
-        if (!user || !matchId) return;
+    // Realtime Hook
+    useMessagesRealtime({
+        matchId,
+        tenantId: user?.tenant_id,
+        onChange: async () => {
+            console.log('[ChatPage] 🔄 Realtime update triggered, refetching...');
 
-        const channelKeys: string[] = [];
+            // Re-fetch messages
+            const { data: messagesData, error: messagesError } = await supabase
+                .from("messages")
+                .select("*")
+                .eq("match_id", matchId)
+                .order("created_at", { ascending: true }) as { data: any[] | null, error: any }
 
-        // Insert
-        const insertKey = subscribe({
-            table: 'messages',
-            filter: `match_id=eq.${matchId}`,
-            event: 'INSERT',
-            onChange: async (payload) => {
-                const msg = payload.new;
-                const profile = await fetchProfile(msg.sender_id);
+            if (messagesError) {
+                console.error("[ChatPage] Fetch error:", messagesError)
+                return
+            }
 
-                setMessages((prev) => {
-                    if (prev.find((m: any) => m.id === msg.id)) return prev
-                    if (msg.deleted_for?.includes(user?.id)) return prev
-                    return [...prev, {
-                        ...msg,
-                        is_me: msg.sender_id === user?.id,
-                        sender_name: profile.full_name,
-                        sender_role_display: profile.role
-                    }]
-                })
+            if (messagesData) {
+                // Fetch profiles for new senders
+                const senderIds = Array.from(new Set(messagesData.map(m => m.sender_id)))
+                const { data: profilesData } = await supabase
+                    .from("profiles")
+                    .select("id, full_name, role")
+                    .in("id", senderIds)
+
+                const profileMap = new Map(profilesData?.map(p => [p.id, p]) || [])
+
+                // Update cache
+                profilesData?.forEach(p => {
+                    profileCacheRef.current.set(p.id, { full_name: p.full_name, role: p.role });
+                });
+
+                const visibleMessages = filterDeleted(messagesData, user?.id || "")
+                setMessages(visibleMessages.map(m => ({
+                    ...m,
+                    is_me: m.sender_id === user?.id,
+                    sender_name: profileMap.get(m.sender_id)?.full_name || "Unknown User",
+                    sender_role_display: profileMap.get(m.sender_id)?.role || "user"
+                })))
+
                 setTimeout(() => scrollRef.current?.scrollIntoView({ behavior: 'smooth' }), 100)
             }
-        });
-        channelKeys.push(insertKey);
-
-        // Update (Soft Delete)
-        const updateKey = subscribe({
-            table: 'messages',
-            filter: `match_id=eq.${matchId}`,
-            event: 'UPDATE',
-            onChange: (payload) => {
-                const updatedMsg = payload.new;
-                setMessages((prev) => {
-                    const filtered = prev.map(m => m.id === updatedMsg.id ? {
-                        ...updatedMsg,
-                        is_me: updatedMsg.sender_id === user?.id,
-                        sender_name: m.sender_name
-                    } : m)
-                    return filterDeleted(filtered, user?.id || "")
-                })
-            }
-        });
-        channelKeys.push(updateKey);
-
-        // Cleanup on unmount
-        return () => {
-            channelKeys.forEach(key => unsubscribe(key));
-        };
-
-    }, [matchId, user, subscribe, unsubscribe, filterDeleted, fetchProfile]);
+        }
+    })
 
     // 3. Click Listeners
     useEffect(() => {
@@ -251,25 +252,36 @@ export default function ChatPage() {
                             <p className="text-white text-lg font-bold">No history found.</p>
                         </div>
                     ) : (
-                        messages.map((msg) => (
-                            <div
-                                key={msg.id}
-                                className="flex flex-col cursor-pointer mb-2"
-                                onContextMenu={(e) => handleContextMenu(e, msg.id)}
-                                onTouchStart={(e) => {
-                                    const timer = setTimeout(() => handleContextMenu(e as any, msg.id), 500)
-                                    const clear = () => clearTimeout(timer)
-                                    e.currentTarget.addEventListener('touchend', clear, { once: true })
-                                    e.currentTarget.addEventListener('touchmove', clear, { once: true })
-                                }}
-                            >
-                                {!msg.is_me && (
-                                    <span className="text-[10px] text-zinc-500 ml-1 mb-1 font-medium">{msg.sender_name}</span>
-                                )}
-                                <MessageBubble message={msg} />
+                        messages.map((msg) => {
+                            // Debug: Log message data
+                            if (messages.indexOf(msg) === 0) {
+                                console.log('[ChatPage] Sample message data:', {
+                                    is_me: msg.is_me,
+                                    sender_role: msg.sender_role,
+                                    sender_role_display: msg.sender_role_display,
+                                    sender_name: msg.sender_name
+                                });
+                            }
 
-                            </div>
-                        ))
+                            return (
+                                <div
+                                    key={msg.id}
+                                    className="flex flex-col cursor-pointer mb-2"
+                                    onContextMenu={(e) => handleContextMenu(e, msg.id)}
+                                    onTouchStart={(e) => {
+                                        const timer = setTimeout(() => handleContextMenu(e as any, msg.id), 500)
+                                        const clear = () => clearTimeout(timer)
+                                        e.currentTarget.addEventListener('touchend', clear, { once: true })
+                                        e.currentTarget.addEventListener('touchmove', clear, { once: true })
+                                    }}
+                                >
+                                    {!msg.is_me && (
+                                        <span className="text-[10px] text-zinc-500 ml-1 mb-1 font-medium">{msg.sender_name}</span>
+                                    )}
+                                    <MessageBubble message={msg} />
+                                </div>
+                            );
+                        })
                     )}
                     <div ref={scrollRef} />
                 </div>
