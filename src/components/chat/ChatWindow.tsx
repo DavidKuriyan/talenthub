@@ -214,7 +214,15 @@ export default function ChatWindow({
                     </div>
                 ) : (
                     messages.map((msg, index) => {
-                        const isMe = msg.sender_id === currentUserId;
+                        // DEBUG: Check why alignment fails
+                        if (index === 0) {
+                            console.log(`[ChatWindow] Debug Alignment: Me=${currentUserId}, Sender=${msg.sender_id}, Match=${matchId}`);
+                        }
+
+                        const normalizedMe = currentUserId?.trim();
+                        const normalizedSender = msg.sender_id?.trim();
+                        const isMe = normalizedMe && normalizedSender && normalizedMe === normalizedSender;
+
                         const showMeta = index === 0 || messages[index - 1].sender_id !== msg.sender_id;
 
                         // Fallback role detection if missing in DB
@@ -246,8 +254,12 @@ export default function ChatWindow({
                                     )}
 
                                     <div className={`relative px-5 py-4 shadow-2xl transition-all duration-300 ${isMe
-                                            ? (role === 'organization' ? 'bg-indigo-600' : 'bg-emerald-600') + ' text-white rounded-[2rem] rounded-tr-sm'
-                                            : 'bg-zinc-800 text-zinc-100 rounded-[2rem] rounded-tl-sm border border-white/5'
+                                        ? (role === 'organization'
+                                            ? 'bg-gradient-to-br from-indigo-600 to-purple-700 shadow-indigo-500/20'
+                                            : 'bg-gradient-to-br from-emerald-600 to-teal-700 shadow-emerald-500/20') + ' text-white rounded-[2rem] rounded-tr-sm'
+                                        : (role === 'organization'
+                                            ? 'bg-zinc-900 border-2 border-indigo-500 shadow-[0_0_15px_rgba(99,102,241,0.1)]'
+                                            : 'bg-zinc-900 border-2 border-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.1)]') + ' text-zinc-100 rounded-[2rem] rounded-tl-sm'
                                         }`}>
                                         <p className="text-sm md:text-base font-medium leading-relaxed whitespace-pre-wrap break-words">
                                             {msg.content}

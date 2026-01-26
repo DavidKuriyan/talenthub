@@ -106,12 +106,7 @@ export default function OrganizationDashboard() {
                         </h1>
                     </div>
                     <div className="flex gap-4">
-                        <button
-                            onClick={handleLogout}
-                            className="px-6 py-3 bg-zinc-800 border border-zinc-700 text-zinc-300 rounded-2xl hover:bg-zinc-700 hover:text-white transition-all font-bold text-sm"
-                        >
-                            Log Out
-                        </button>
+                        {/* Logout moved to profile menu or relying on other navigation */}
                     </div>
                 </header>
 

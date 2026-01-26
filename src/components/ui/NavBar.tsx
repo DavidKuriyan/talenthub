@@ -1,4 +1,5 @@
 "use client";
+// Force rebuild
 
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
@@ -52,26 +53,26 @@ export default function NavBar() {
 
                 if (error) {
                     console.error("Logout error:", error);
-                    throw error;
+                    // Continue to redirect even if server logout fails (clean local state)
                 }
             }
 
-            // Clear user state regardless
+            // Clear user state
             setUser(null);
 
-            // Navigate to home page and force a full reload to clear state
-            window.location.href = "/";
+            // Context-aware redirect
+            if (pathname?.startsWith("/organization")) {
+                window.location.href = "/organization/login";
+            } else if (pathname?.startsWith("/engineer")) {
+                window.location.href = "/login";
+            } else {
+                window.location.href = "/";
+            }
 
         } catch (error: any) {
-            // Handle AuthSessionMissingError gracefully - user is already logged out
-            if (error?.name === 'AuthSessionMissingError' || error?.message?.includes('session missing')) {
-                console.log("No active session, redirecting to home");
-                setUser(null);
-                window.location.href = "/";
-            } else {
-                console.error("Logout failed:", error);
-                alert("Failed to logout. Please try again.");
-            }
+            console.error("Logout exception:", error);
+            // Force redirect to home as fallback
+            window.location.href = "/";
         } finally {
             setLoading(false);
         }
