@@ -42,28 +42,42 @@ export default function NavBar() {
     }, []);
 
     const handleLogout = async () => {
+        if (loading) return;
         setLoading(true);
         try {
-            console.log("[NavBar] Initiating logout...");
-            await supabase.auth.signOut();
+            console.log("[NavBar] Initiating global logout...");
 
-            // Clear any local storage that might persist state
+            // 1. Sign out from Supabase
+            const { error } = await supabase.auth.signOut();
+            if (error) throw error;
+
+            // 2. Clear state and storage
             if (typeof window !== 'undefined') {
                 window.localStorage.clear();
                 window.sessionStorage.clear();
+
+                // Clear all cookies (best effort)
+                document.cookie.split(";").forEach((c) => {
+                    document.cookie = c
+                        .replace(/^ +/, "")
+                        .replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
+                });
             }
 
-            // Context-aware redirect
+            // 3. Role-based redirect using replace for clean history
+            let targetUrl = "/";
             if (pathname?.startsWith("/organization")) {
-                window.location.href = "/organization/login";
+                targetUrl = "/organization/login";
             } else if (pathname?.startsWith("/engineer")) {
-                window.location.href = "/login";
-            } else {
-                window.location.href = "/";
+                targetUrl = "/login";
             }
-        } catch (error) {
-            console.error("Logout exception:", error);
-            window.location.href = "/";
+
+            console.log(`[NavBar] Redirecting to ${targetUrl}`);
+            window.location.replace(targetUrl);
+        } catch (error: any) {
+            console.error("Logout failure:", error?.message || error);
+            // Fallback redirect even on failure to ensure user isn't stuck
+            window.location.replace("/");
         } finally {
             setLoading(false);
         }

@@ -130,13 +130,17 @@ export default function OrganizationMessagesPage() {
                     {/* Chat Area */}
                     <div className="flex-1 flex flex-col bg-zinc-950/20">
                         {selectedConversation ? (
-                            <ChatWindow
-                                matchId={selectedConversation.id}
-                                currentUserId={session?.user.id}
-                                currentUserName={session?.user.user_metadata?.full_name || 'Organization'}
-                                otherUserName={selectedConversation.engineerName}
-                                currentUserRole="organization"
-                            />
+                            <div className="flex-1 flex flex-col items-center justify-center text-center p-8">
+                                <div className="w-24 h-24 bg-indigo-500/10 rounded-full flex items-center justify-center text-5xl mb-6">🚀</div>
+                                <h3 className="text-2xl font-black tracking-tight mb-2">Joining Secure Channel</h3>
+                                <p className="text-zinc-500 max-w-xs text-sm font-medium mb-6">Moving to the dedicated real-time messaging portal for this match.</p>
+                                <button
+                                    onClick={() => router.push(`/messages/${selectedConversation.id}`)}
+                                    className="px-8 py-3 bg-indigo-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-indigo-500 transition-all shadow-lg shadow-indigo-600/20"
+                                >
+                                    Open Real-time Chat
+                                </button>
+                            </div>
                         ) : (
                             <div className="flex-1 flex flex-col items-center justify-center text-center p-8">
                                 <div className="w-24 h-24 bg-indigo-500/10 rounded-full flex items-center justify-center text-5xl mb-6">💬</div>

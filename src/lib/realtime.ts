@@ -241,22 +241,23 @@ export type TableName = 'matches' | 'interviews' | 'requirements' | 'profiles' |
  */
 export function subscribeToTable(
     tableName: TableName,
-    tenantId: string,
+    filterValue: string,
     onInsert?: (record: any) => void,
     onUpdate?: (record: any) => void,
-    onDelete?: (recordId: string) => void
+    onDelete?: (recordId: string) => void,
+    filterColumn: string = 'tenant_id'
 ) {
-    console.log(`[GlobalSync] Subscribing to ${tableName} for tenant:${tenantId}`);
+    console.log(`[GlobalSync] Subscribing to ${tableName} where ${filterColumn}=${filterValue}`);
 
     const channel = supabase
-        .channel(`global:${tableName}:${tenantId}`)
+        .channel(`global:${tableName}:${filterValue}`)
         .on(
             "postgres_changes",
             {
                 event: "*",
                 schema: "public",
                 table: tableName,
-                filter: `tenant_id=eq.${tenantId}`,
+                filter: `${filterColumn}=eq.${filterValue}`,
             },
             (payload) => {
                 console.log(`[GlobalSync] ${tableName} change:`, payload.eventType, payload);

@@ -252,14 +252,14 @@ export default function ChatWindow({
                         }
 
                         // STYLES based on the EXACT REQUIREMENTS:
-                        // Me (Organization): Solid INDIGO gradient (Right)
-                        // Me (Engineer): Solid EMERALD gradient (Right)
-                        // Them (Organization): Dark Gray + Indigo LEFT border (Left)
-                        // Them (Engineer): Dark Gray + Emerald LEFT border (Left)
+                        // Me (Organization): Solid INDIGO gradient (RIGHT)
+                        // Me (Engineer): Solid EMERALD gradient (RIGHT)
+                        // Them (Organization): Dark Gray (zinc-800) + Indigo LEFT border (LEFT)
+                        // Them (Engineer): Dark Gray (zinc-800) + Emerald LEFT border (LEFT)
 
                         let bubbleStyle = "";
                         if (isMe) {
-                            if (msg.sender_role === 'organization') {
+                            if (currentUserRole === 'organization') {
                                 bubbleStyle = "bg-gradient-to-br from-indigo-600 to-indigo-800 text-white rounded-2xl rounded-tr-sm shadow-lg shadow-indigo-500/20";
                             } else {
                                 bubbleStyle = "bg-gradient-to-br from-emerald-600 to-emerald-800 text-white rounded-2xl rounded-tr-sm shadow-lg shadow-emerald-500/20";

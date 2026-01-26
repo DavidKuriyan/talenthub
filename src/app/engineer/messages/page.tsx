@@ -136,13 +136,17 @@ export default function MessagesPage() {
                         {/* Messages Area */}
                         <div className="flex-1 flex flex-col bg-black/20">
                             {selectedConversation ? (
-                                <ChatWindow
-                                    matchId={selectedConversation}
-                                    currentUserId={session?.user.id}
-                                    currentUserName={session?.user.user_metadata?.full_name || 'Engineer'}
-                                    otherUserName={selectedConversationData?.company || 'Recruiter'}
-                                    currentUserRole="engineer"
-                                />
+                                <div className="flex-1 flex flex-col items-center justify-center text-center p-8">
+                                    <div className="w-24 h-24 bg-emerald-500/10 rounded-full flex items-center justify-center text-5xl mb-6">🚀</div>
+                                    <h3 className="text-2xl font-black tracking-tight mb-2 text-white">Opening Channel</h3>
+                                    <p className="text-emerald-300/60 max-w-xs text-sm font-medium mb-6">Connecting to the real-time hub for {selectedConversationData?.company}.</p>
+                                    <button
+                                        onClick={() => router.push(`/messages/${selectedConversation}`)}
+                                        className="px-8 py-3 bg-emerald-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-emerald-500 transition-all shadow-lg shadow-emerald-600/20"
+                                    >
+                                        Enter Chat
+                                    </button>
+                                </div>
                             ) : (
                                 <div className="flex-1 flex items-center justify-center">
                                     <div className="text-center opacity-50">
