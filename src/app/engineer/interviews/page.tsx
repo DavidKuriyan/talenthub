@@ -26,24 +26,43 @@ export default async function EngineerInterviewsPage() {
     let tenantsMap: Record<string, string> = {};
 
     if (profile && (profile as any).id) {
-        // Fetch interviews via matches linked to this profile - NO nested tenant join
-        const { data } = await supabase
+        // Fetch interviews via matches linked to this profile - Manual join
+        const { data: interviewsData, error } = await supabase
             .from("interviews")
-            .select(`
-                *,
-                matches!inner (
-                    id,
-                    profile_id,
-                    requirements (
-                        title,
-                        tenant_id
-                    )
-                )
-            `)
-            .eq("matches.profile_id", (profile as any).id)
+            .select("*")
             .order("scheduled_at", { ascending: true });
 
-        interviews = data || [];
+        if (!error && interviewsData) {
+            // Filter manually for this engineer's profile
+            // First get matches for this profile
+            const { data: matches } = await supabase
+                .from("matches")
+                .select("id, profile_id, requirement_id")
+                .eq("profile_id", (profile as any).id) as { data: any[] | null };
+
+            const matchIds = new Set((matches || []).map(m => m.id));
+
+            // Filter interviews for these matches
+            interviews = interviewsData.filter((i: any) => matchIds.has(i.match_id));
+
+            // Populate matches and requirements manually
+            const reqIds = (matches || []).map(m => m.requirement_id);
+            let reqsMap: Record<string, any> = {};
+            if (reqIds.length > 0) {
+                const { data: reqs } = await supabase.from("requirements").select("id, title, tenant_id").in("id", reqIds);
+                if (reqs) reqsMap = reqs.reduce((acc: any, r: any) => ({ ...acc, [r.id]: r }), {});
+            }
+
+            const matchesMap = (matches || []).reduce((acc: any, m: any) => ({
+                ...acc,
+                [m.id]: { ...m, requirements: reqsMap[m.requirement_id] }
+            }), {});
+
+            interviews = interviews.map((i: any) => ({
+                ...i,
+                matches: matchesMap[i.match_id]
+            }));
+        }
 
         // Fetch tenant names separately to avoid schema cache issues
         const tenantIds = [...new Set(interviews.map((i: any) => i.matches?.requirements?.tenant_id).filter(Boolean))];

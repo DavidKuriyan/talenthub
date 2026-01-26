@@ -85,8 +85,23 @@ export default function ChatWindow({
             matchId,
             async (newMsg) => {
                 setMessages((prev) => {
+                    // 1. If exact ID exists, ignore
                     if (prev.find(m => m.id === newMsg.id)) return prev;
-                    return [...prev, newMsg as Message];
+
+                    // 2. Identify and remove any matching temp message
+                    // (Same content, same sender, temp ID)
+                    const tempMatch = prev.find(m =>
+                        m.id.startsWith('temp-') &&
+                        m.content === newMsg.content &&
+                        m.sender_id === newMsg.sender_id
+                    );
+
+                    let nextMessages = [...prev];
+                    if (tempMatch) {
+                        nextMessages = nextMessages.filter(m => m.id !== tempMatch.id);
+                    }
+
+                    return [...nextMessages, newMsg as Message];
                 });
                 setTimeout(scrollToBottom, 100);
 
@@ -120,18 +135,19 @@ export default function ChatWindow({
         e.preventDefault();
         if (!newMessage.trim() || isSending) return;
 
+        const content = newMessage.trim();
+        const tempId = 'temp-' + Date.now();
+
         try {
             setIsSending(true);
-            const content = newMessage;
             setNewMessage('');
 
             // Optimistic update
-            const tempId = 'temp-' + Date.now();
             const tempMsg: Message = {
                 id: tempId,
                 sender_id: currentUserId,
                 sender_role: currentUserRole,
-                content: content.trim(),
+                content: content,
                 created_at: new Date().toISOString(),
                 match_id: matchId
             } as any;
@@ -141,12 +157,24 @@ export default function ChatWindow({
 
             await sendMessage(matchId, currentUserId, content, currentUserRole);
 
-            // Remove temp message will happen when real one arrives via realtime
-            // But if realtime is slow, we might see duplicates if we don't handle it
+            // Clean up temp message after short delay to allow realtime to arrive
+            // Realtime usually arrives < 100ms. If we keep temp too long, we see dupes.
+            // If we remove too fast, we see flicker.
+            // Best approach: filtering happens in the subscription callback (id check)
+            // But we also need to self-clean logic here just in case.
+            setTimeout(() => {
+                setMessages(prev => {
+                    // If we find a real message with same content and approx same time, remove temp
+                    const hasReal = prev.some(m => !m.id.startsWith('temp-') && m.content === content && m.sender_id === currentUserId);
+                    if (hasReal) return prev.filter(m => m.id !== tempId);
+                    return prev;
+                });
+            }, 2000);
+
         } catch (err) {
             setError("Send failed");
-            // Remove temp msg on failure
-            setMessages(prev => prev.filter(m => !m.id.startsWith('temp-')));
+            setMessages(prev => prev.filter(m => m.id !== tempId));
+            setNewMessage(content); // Restore content
         } finally {
             setIsSending(false);
         }

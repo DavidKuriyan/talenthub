@@ -212,6 +212,7 @@ export interface Database {
                     experience_years: number
                     resume_url: string | null
                     availability: 'available' | 'busy' | 'unavailable'
+                    desired_salary: number | null
                     created_at: string
                 }
                 Insert: {

@@ -41,6 +41,10 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: "No tenant context found" }, { status: 400 });
         }
 
+        // Security: Ensure the user is posting for THEIR tenant (if body contains tenant_id)
+        // Note: The schema doesn't seem to include tenant_id in body, but if it did, we must block spoofing.
+        // We rely on session tenantId for the insert.
+
         const { data, error } = await supabase
             .from("requirements")
             .insert({

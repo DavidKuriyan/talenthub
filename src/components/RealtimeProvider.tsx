@@ -1,103 +1,74 @@
 "use client";
 
-import { useEffect, useRef, useState, createContext, useContext } from "react";
+import { createContext, useContext, useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
-import { subscribeToTable, GlobalTable } from "@/lib/realtime/global";
 import { useRouter } from "next/navigation";
 
-const RealtimeContext = createContext<number>(0);
+type RealtimeContextType = {
+    isConnected: boolean;
+};
+
+const RealtimeContext = createContext<RealtimeContextType>({ isConnected: false });
+
 export const useRealtime = () => useContext(RealtimeContext);
 
-export default function RealtimeProvider({ children }: { children: React.ReactNode }) {
+export function RealtimeProvider({ children }: { children: React.ReactNode }) {
+    const [isConnected, setIsConnected] = useState(false);
     const router = useRouter();
-    const [lastUpdate, setLastUpdate] = useState(Date.now());
-    const unsubscribesRef = useRef<(() => void)[]>([]);
 
     useEffect(() => {
-        const setupGlobalSync = async () => {
-            try {
-                // Safety: check for session recovery errors
-                const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-
-                if (sessionError) {
-                    console.error("[EventBus] Session error:", sessionError);
-                    return;
-                }
-
-                if (!session) return;
-
-                const user = session.user;
-                const tenantId = user?.app_metadata?.tenant_id || user?.user_metadata?.tenant_id;
-                const role = user?.app_metadata?.role || user?.user_metadata?.role;
-
-                // 1. Cleanup existing subscriptions
-                unsubscribesRef.current.forEach(unsub => unsub());
-                unsubscribesRef.current = [];
-
-                const triggerUpdate = (payload: any) => {
-                    console.log(`[EventBus] Global Update: ${payload.table} (${payload.eventType})`);
-                    setLastUpdate(Date.now());
-                    router.refresh();
-                };
-
-                if (tenantId) {
-                    console.log(`[EventBus] Active: Syncing for Tenant ${tenantId.slice(0, 8)}`);
-
-                    const tables: GlobalTable[] = ['matches', 'interviews', 'requirements', 'profiles', 'messages'];
-                    unsubscribesRef.current = tables.map(table =>
-                        subscribeToTable({
-                            table,
-                            filterColumn: 'tenant_id',
-                            filterValue: tenantId,
-                            onChange: triggerUpdate
-                        })
-                    );
-                } else if (role === 'provider' || role === 'engineer') {
-                    // Engineers need their profile ID to sync
-                    const { data: profile } = await supabase
-                        .from('profiles')
-                        .select('id')
-                        .eq('user_id', user.id)
-                        .single() as { data: { id: string } | null };
-
-                    if (profile?.id) {
-                        console.log(`[EventBus] Active: Syncing for Engineer ${profile.id.slice(0, 8)}`);
-
-                        const tables: GlobalTable[] = ['matches', 'interviews', 'messages'];
-                        unsubscribesRef.current = tables.map(table =>
-                            subscribeToTable({
-                                table,
-                                filterColumn: table === 'messages' ? 'sender_id' : 'profile_id',
-                                filterValue: table === 'messages' ? user.id : profile.id,
-                                onChange: triggerUpdate
-                            })
-                        );
-                    }
-                }
-            } catch (error) {
-                console.error("[EventBus] Fault:", error);
-            }
-        };
-
-        setupGlobalSync();
-
-        const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
-            if (['SIGNED_IN', 'USER_UPDATED', 'TOKEN_REFRESHED'].includes(event)) {
-                setupGlobalSync();
-            } else if (event === 'SIGNED_OUT') {
-                unsubscribesRef.current.forEach(unsub => unsub());
-                unsubscribesRef.current = [];
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+            if (event === 'SIGNED_OUT') {
+                setIsConnected(false);
+                // Ensure channels are cleaned up
+                supabase.removeAllChannels();
             }
         });
 
-        return () => {
-            unsubscribesRef.current.forEach(unsub => unsub());
-            subscription.unsubscribe();
+        // Global User Channel for profile updates, notifications etc.
+        const setupGlobalSubscription = async () => {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (!session?.user) return;
+
+            const userId = session.user.id;
+            const tenantId = session.user.app_metadata?.tenant_id;
+
+            console.log(`[GlobalRealtime] Initializing for user: ${userId}`);
+
+            const channel = supabase.channel(`global:${userId}`)
+                .on(
+                    'postgres_changes',
+                    {
+                        event: '*',
+                        schema: 'public',
+                        table: 'notifications',
+                        filter: `user_id=eq.${userId}`
+                    },
+                    (payload) => {
+                        console.log('[GlobalRealtime] Notification:', payload);
+                        // In a real app, trigger a toast or update separate context
+                    }
+                )
+                .subscribe((status) => {
+                    console.log(`[GlobalRealtime] Status: ${status}`);
+                    setIsConnected(status === 'SUBSCRIBED');
+                });
+
+            return () => {
+                supabase.removeChannel(channel);
+            };
         };
-    }, [router]);
+
+        const cleanupPromise = setupGlobalSubscription();
+
+        return () => {
+            subscription.unsubscribe();
+            cleanupPromise.then(cleanup => cleanup && cleanup());
+        };
+    }, []);
 
     return (
-        <RealtimeContext.Provider value={lastUpdate}>
+        <RealtimeContext.Provider value={{ isConnected }}>
             {children}
         </RealtimeContext.Provider>
     );

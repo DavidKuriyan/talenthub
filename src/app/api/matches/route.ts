@@ -42,6 +42,15 @@ export async function POST(req: Request) {
         // 4. Run Matching Algorithm
         const matchesToInsert: any[] = [];
 
+        // Fetch existing matches to prevent duplicates (since unique constraint might be missing)
+        // Optimization: Fetch only IDs for this tenant
+        const { data: existingMatches } = await supabase
+            .from("matches")
+            .select("requirement_id, profile_id")
+            .eq("tenant_id", session.user.app_metadata?.tenant_id || session.user.user_metadata?.tenant_id);
+
+        const existingSet = new Set((existingMatches || []).map((m: any) => `${m.requirement_id}_${m.profile_id}`));
+
         for (const req of requirements) {
             // Ensure schema compatibility (skills is JSONB, assumed string array)
             const reqSkills = (Array.isArray(req.skills) ? req.skills : []) as string[];
@@ -49,6 +58,9 @@ export async function POST(req: Request) {
             for (const prof of profiles) {
                 // Tenant Constraint: Must match tenant
                 if (req.tenant_id !== prof.tenant_id) continue;
+
+                // Check for duplicate
+                if (existingSet.has(`${req.id}_${prof.id}`)) continue;
 
                 const profSkills = (Array.isArray(prof.skills) ? prof.skills : []) as string[];
 
@@ -58,30 +70,29 @@ export async function POST(req: Request) {
                 if (intersection.length > 0) {
                     const score = Math.round((intersection.length / reqSkills.length) * 100);
 
+                    // Add to insertion list
                     matchesToInsert.push({
                         tenant_id: req.tenant_id,
                         requirement_id: req.id,
                         profile_id: prof.id,
                         score: score,
                         status: 'pending'
-                        // Note: Upsert needs constraint. If we rely on ID, we need to know it. 
-                        // If we want to update existing matches, we need a unique constraint on (requirement_id, profile_id).
-                        // We haven't added that constraint in migration. So duplicate matches could be created.
-                        // For MVP, we'll check existence or just insert.
                     });
+
+                    // Add to set to prevent double insertion in same run if data faulty
+                    existingSet.add(`${req.id}_${prof.id}`);
                 }
             }
         }
 
-        // 5. Bulk Upsert Matches
+        // 5. Bulk Insert Matches (Safe)
         if (matchesToInsert.length > 0) {
+            // Chunking not needed for small scale, but good practice
             const { error: matchError } = await supabase
                 .from("matches")
-                .upsert(matchesToInsert as any, {
-                    onConflict: 'requirement_id,profile_id'
-                });
+                .insert(matchesToInsert as any); // Regular insert now safe due to pre-check
 
-            if (matchError) throw new Error("Match upsert failed: " + matchError.message);
+            if (matchError) throw new Error("Match batch insert failed: " + matchError.message);
         }
 
         return NextResponse.json({

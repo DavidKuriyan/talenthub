@@ -7,11 +7,15 @@ export function MessageBubble({ message }: any) {
 
     const styles = isMe
         ? isOrg
-            ? "ml-auto bg-gradient-to-r from-indigo-600 to-indigo-500 text-white"
-            : "ml-auto bg-gradient-to-r from-emerald-600 to-emerald-500 text-white"
+            // Me (Organization): Indigo Gradient
+            ? "ml-auto bg-gradient-to-br from-indigo-600 to-blue-600 text-white shadow-lg shadow-indigo-500/20 rounded-tr-sm"
+            // Me (Engineer): Emerald Gradient
+            : "ml-auto bg-gradient-to-br from-emerald-600 to-teal-600 text-white shadow-lg shadow-emerald-500/20 rounded-tr-sm"
         : isOrg
-            ? "mr-auto bg-zinc-800 text-white border-l-4 border-indigo-500"
-            : "mr-auto bg-zinc-800 text-white border-l-4 border-emerald-500"
+            // Them (Organization): Dark Gray + Indigo Border
+            ? "mr-auto bg-zinc-800 text-zinc-100 border-l-4 border-indigo-500 shadow-md rounded-tl-sm"
+            // Them (Engineer): Dark Gray + Emerald Border
+            : "mr-auto bg-zinc-800 text-zinc-100 border-l-4 border-emerald-500 shadow-md rounded-tl-sm"
 
     return <div className={`${base} ${styles}`}>{message.content}</div>
 }

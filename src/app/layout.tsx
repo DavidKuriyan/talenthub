@@ -20,7 +20,7 @@ export const metadata: Metadata = {
 import { CartProvider } from "@/context/CartContext";
 import NavBar from "@/components/ui/NavBar";
 import MobileBottomNav from "@/components/ui/MobileBottomNav";
-import RealtimeProvider from "@/components/RealtimeProvider";
+import { RealtimeProvider } from "@/components/RealtimeProvider";
 import Script from "next/script";
 
 export default function RootLayout({

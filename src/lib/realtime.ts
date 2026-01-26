@@ -24,8 +24,16 @@ export function subscribeToMessages(
 
     console.log(`[Realtime] Subscribing to match:${matchId} (currentUserId: ${currentUserId})`);
 
+    // CLEANUP: Remove any existing channel for this match to prevent duplicates
+    const channelName = `realtime:chat:${matchId}`;
+    const existingChannel = supabase.getChannels().find(c => c.topic === channelName);
+    if (existingChannel) {
+        console.log(`[Realtime] Cleaning up existing channel for ${matchId}`);
+        supabase.removeChannel(existingChannel);
+    }
+
     const channel = supabase
-        .channel(`realtime:chat:${matchId}`)
+        .channel(channelName)
         .on(
             "postgres_changes",
             {
@@ -35,7 +43,7 @@ export function subscribeToMessages(
                 filter: `match_id=eq.${matchId}`,
             },
             (payload) => {
-                console.log("[Realtime] New Message Received");
+                console.log("[Realtime] New Message Received:", payload.new);
                 onNewMessage(payload.new as Message);
             }
         )
@@ -48,7 +56,7 @@ export function subscribeToMessages(
                 filter: `match_id=eq.${matchId}`,
             },
             (payload) => {
-                console.log("[Realtime] Message Updated");
+                console.log("[Realtime] Message Updated:", payload.new);
                 if (onMessageUpdate) onMessageUpdate(payload.new as Message);
             }
         )
@@ -61,14 +69,15 @@ export function subscribeToMessages(
                 filter: `match_id=eq.${matchId}`,
             },
             (payload) => {
-                console.log("[Realtime] Message Deleted");
+                console.log("[Realtime] Message Deleted:", payload.old);
                 if (onMessageDelete && payload.old) {
                     onMessageDelete((payload.old as any).id);
                 }
             }
         )
         .subscribe((status, err) => {
-            console.log(`[Realtime] Sync Status for match ${matchId.slice(0, 8)}: ${status}`);
+            const idStr = matchId ? String(matchId) : 'unknown';
+            console.log(`[Realtime] Sync Status for match ${idStr.slice(0, 8)}: ${status}`);
             if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || err) {
                 console.error("[Realtime] Subscription Error Details:", err?.message || status);
                 if (onError) onError(err || new Error(status));
@@ -218,6 +227,48 @@ export async function deleteMessage(messageId: string, userId: string) {
         });
 
     if (error) {
+        // Fallback: If RPC is missing, do manual update
+        if (error.code === '42883' || error.code === 'PGRST202') { // undefined_function or similar
+            console.warn("[Realtime] 'soft_delete_message' RPC missing, using manual fallback...");
+
+            // 1. Fetch current row (using * to match the implementation in fetchMessageHistory that works)
+            const { data: current, error: fetchError } = await (supabase
+                .from('messages')
+                .select('*')
+                .eq('id', messageId)
+                .single() as any);
+
+            if (fetchError) {
+                console.error("[Realtime] Fallback fetch failed:", JSON.stringify(fetchError, null, 2));
+                throw fetchError;
+            }
+
+            const currentDeletedBy = (current as any)?.deleted_by || [];
+            if (Array.isArray(currentDeletedBy) && currentDeletedBy.includes(userId)) return true; // Already deleted
+
+            const newDeletedBy = Array.isArray(currentDeletedBy) ? [...currentDeletedBy, userId] : [userId];
+
+            // 2. Update array
+            const { error: updateError } = await (supabase
+                .from('messages')
+                .update({
+                    deleted_by: newDeletedBy
+                } as any)
+                .eq('id', messageId) as any);
+
+            if (updateError) {
+                // specific handling for missing column
+                if (updateError.code === '42703') {
+                    console.error("[Realtime] 'deleted_by' column missing. Cannot soft delete.");
+                    // Depending on requirements, we might just swallow this or alert user
+                    throw new Error("Cannot delete message: Schema incompatible");
+                }
+                console.error("[Realtime] Fallback update failed:", JSON.stringify(updateError, null, 2));
+                throw updateError;
+            }
+            return true;
+        }
+
         console.error("[Realtime] Error deleting message:", {
             message: error.message,
             code: error.code,

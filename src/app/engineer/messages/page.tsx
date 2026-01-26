@@ -47,23 +47,31 @@ export default function MessagesPage() {
                 return;
             }
 
-            // Fetch matches (conversations) - Simple query without nested tenant join
-            const { data: matchesData, error } = await (supabase
-                .from("matches") as any)
-                .select(`
-                    id,
-                    requirement_id,
-                    requirements (
-                        title,
-                        tenant_id
-                    )
-                `)
+            // Fetch matches (conversations) - Manual fetch to avoid missing FK errors
+            const { data: matchesData, error: matchesError } = await supabase
+                .from("matches")
+                .select("id, requirement_id")
                 .eq("profile_id", (profile as any).id);
 
-            if (error) throw error;
+            if (matchesError) throw matchesError;
+
+            // Manual join for requirements
+            const reqIds = matchesData.map((m: any) => m.requirement_id).filter(Boolean);
+            let reqsMap: Record<string, any> = {};
+
+            if (reqIds.length > 0) {
+                const { data: reqs } = await supabase
+                    .from("requirements")
+                    .select("id, title, tenant_id")
+                    .in("id", reqIds);
+
+                if (reqs) {
+                    reqsMap = reqs.reduce((acc: any, r: any) => ({ ...acc, [r.id]: r }), {});
+                }
+            }
 
             // Fetch tenant names separately to avoid schema cache issues
-            const tenantIds = [...new Set((matchesData || []).map((m: any) => m.requirements?.tenant_id).filter(Boolean))];
+            const tenantIds = Object.values(reqsMap).map((r: any) => r.tenant_id).filter(Boolean);
             let tenantsMap: Record<string, string> = {};
 
             if (tenantIds.length > 0) {
@@ -74,13 +82,17 @@ export default function MessagesPage() {
             }
 
             // Format conversations with fallback title
-            const formattedConversations = (matchesData || []).map((m: any) => ({
-                id: m.id,
-                name: m.requirements?.title || `Job Match #${m.id?.slice(0, 8)}`,
-                company: tenantsMap[m.requirements?.tenant_id] || "TalentHub Partner",
-                lastMessage: "Chat about this role",
-                roomName: `${m.requirements?.tenant_id}_${m.id}`
-            }));
+            const formattedConversations = (matchesData || []).map((m: any) => {
+                const req = reqsMap[m.requirement_id];
+                const tenantId = req?.tenant_id;
+                return {
+                    id: m.id,
+                    name: req?.title || `Job Match #${m.id?.slice(0, 8)}`,
+                    company: tenantsMap[tenantId] || "TalentHub Partner",
+                    lastMessage: "Chat about this role",
+                    roomName: `${tenantId}_${m.id}`
+                };
+            });
 
             setConversations(formattedConversations);
             setLoading(false);

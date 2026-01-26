@@ -78,7 +78,7 @@ export async function POST(req: NextRequest) {
         }
 
         const tenantId = session.user.user_metadata?.tenant_id || session.user.app_metadata?.tenant_id;
-        const jitsiRoomId = `talenthub-interview-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+        const jitsiRoomId = `interview-${tenantId}-${match_id}-${Date.now().toString(36)}`;
 
         const insertData: any = {
             tenant_id: tenantId,

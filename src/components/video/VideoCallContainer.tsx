@@ -133,17 +133,17 @@ export default function VideoCallContainer({
                     startScreenSharing: false,
                     enableEmailInStats: false,
                     prejoinPageEnabled: false,
-                    disableDeepLinking: true
+                    disableDeepLinking: true,
+                    enableWelcomePage: false
                 }}
                 interfaceConfigOverwrite={{
                     DISABLE_JOIN_LEAVE_NOTIFICATIONS: true,
                     SHOW_JITSI_WATERMARK: false,
                     HIDE_KICK_BUTTON_FOR_GUESTS: true,
                     TOOLBAR_BUTTONS: [
-                        'microphone', 'camera', 'closedcaptions', 'desktop', 'fullscreen',
-                        'fodeviceselection', 'hangup', 'profile', 'chat', 'recording',
-                        'settings', 'raisehand', 'videoquality', 'filmstrip',
-                        'tileview', 'download', 'help', 'mute-everyone'
+                        'microphone', 'camera', 'desktop', 'fullscreen',
+                        'fodeviceselection', 'hangup', 'chat',
+                        'raisehand', 'videoquality', 'tileview'
                     ]
                 }}
                 userInfo={{

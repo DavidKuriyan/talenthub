@@ -40,30 +40,43 @@ export default function OrganizationMessagesPage() {
                 return;
             }
 
-            // Fetch all matches for this organization with direct joins
-            const { data: matchesData, error } = await supabase
+            // Fetch all matches for this organization - Manual join logic
+            const { data: matchesData, error: matchesError } = await supabase
                 .from("matches")
-                .select(`
-                    id,
-                    requirement_id,
-                    profile_id,
-                    profiles:profile_id (
-                        full_name
-                    ),
-                    requirements (
-                        title
-                    )
-                `)
+                .select("id, requirement_id, profile_id")
                 .eq("tenant_id", tenantId);
 
-            if (error) throw error;
+            if (matchesError) throw matchesError;
+
+            // Fetch related profiles and requirements manually
+            const profileIds = matchesData.map((m: any) => m.profile_id).filter(Boolean);
+            const reqIds = matchesData.map((m: any) => m.requirement_id).filter(Boolean);
+
+            let profilesMap: Record<string, any> = {};
+            let reqsMap: Record<string, any> = {};
+
+            // Parallel fetch
+            await Promise.all([
+                (async () => {
+                    if (profileIds.length > 0) {
+                        const { data } = await supabase.from("profiles").select("id, full_name").in("id", profileIds);
+                        if (data) profilesMap = data.reduce((acc: any, p: any) => ({ ...acc, [p.id]: p }), {});
+                    }
+                })(),
+                (async () => {
+                    if (reqIds.length > 0) {
+                        const { data } = await supabase.from("requirements").select("id, title").in("id", reqIds);
+                        if (data) reqsMap = data.reduce((acc: any, r: any) => ({ ...acc, [r.id]: r }), {});
+                    }
+                })()
+            ]);
 
             // Format conversations with real names and job titles
             const formattedConversations = (matchesData || []).map((m: any) => ({
                 id: m.id,
-                title: m.requirements?.title || `Match #${m.id?.slice(0, 8) || "Unknown"}`,
+                title: reqsMap[m.requirement_id]?.title || `Match #${m.id?.slice(0, 8) || "Unknown"}`,
                 engineerId: m.profile_id || "Unknown",
-                engineerName: m.profiles?.full_name || "Anonymous Engineer",
+                engineerName: profilesMap[m.profile_id]?.full_name || "Anonymous Engineer",
                 lastMessage: "Click to start chatting"
             }));
 

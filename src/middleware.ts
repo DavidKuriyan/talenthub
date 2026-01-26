@@ -92,7 +92,19 @@ export async function middleware(request: NextRequest) {
 
     // Inject tenant context and perform basic authorization
     if (session?.user) {
-        const tenantId = session.user.app_metadata.tenant_id || 'talenthub'
+        // STRICT: No fallback to 'talenthub'. Tenant ID must exist in metadata.
+        const tenantId = session.user.app_metadata.tenant_id || session.user.user_metadata?.tenant_id;
+
+        if (!tenantId) {
+            // If no tenant is present, this user account is broken or invalid.
+            // Logout and force re-login to check integrity.
+            const forcedLogoutUrl = request.nextUrl.clone();
+            forcedLogoutUrl.pathname = '/login';
+            forcedLogoutUrl.searchParams.set('error', 'invalid_tenant');
+            // Clear cookies via response? Cannot easily do that here without specialized logic, 
+            // but redirecting to login usually triggers new flow.
+            return NextResponse.redirect(forcedLogoutUrl);
+        }
 
         // Authorized role protection for /admin (except login page)
         if (url.pathname.startsWith('/admin') && url.pathname !== '/admin/login') {

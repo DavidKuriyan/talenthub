@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef, useCallback } from "react"
 import { supabase } from "@/lib/supabase"
-import { subscribeToMessages, deleteMessageForMe } from "@/lib/realtime/messages"
+import { subscribeToMessages, sendMessage, deleteMessage } from "@/lib/realtime"
 import { MessageBubble } from "@/components/chat/MessageBubble"
 import { useParams, useRouter } from "next/navigation"
 import Link from "next/link"
@@ -37,20 +37,32 @@ export default function ChatPage() {
             }
             setUser(session.user)
 
-            // Initial Fetch
-            const { data, error } = await supabase
+            // Initial Fetch with profiles
+            // Note: We fetch messages first, then profiles for the senders to avoid complex joins if relationships are missing
+            const { data: messagesData, error: messagesError } = await supabase
                 .from("messages")
                 .select("*")
                 .eq("match_id", matchId)
-                .order("created_at", { ascending: true })
+                .order("created_at", { ascending: true }) as { data: any[] | null, error: any }
 
-            if (error) {
-                console.error("[ChatPage] Fetch error:", error)
-            } else if (data) {
-                const visibleMessages = filterDeleted(data, session.user.id)
+            if (messagesError) {
+                console.error("[ChatPage] Fetch error:", messagesError)
+            } else if (messagesData) {
+                // Fetch profiles for unique senders
+                const senderIds = Array.from(new Set(messagesData.map(m => m.sender_id)))
+                const { data: profilesData } = await supabase
+                    .from("profiles")
+                    .select("id, full_name, role")
+                    .in("id", senderIds)
+
+                const profileMap = new Map(profilesData?.map(p => [p.id, p]) || [])
+
+                const visibleMessages = filterDeleted(messagesData, session.user.id)
                 setMessages(visibleMessages.map(m => ({
                     ...m,
-                    is_me: m.sender_id === session.user.id
+                    is_me: m.sender_id === session.user.id,
+                    sender_name: profileMap.get(m.sender_id)?.full_name || "Unknown User",
+                    sender_role_display: profileMap.get(m.sender_id)?.role || "user"
                 })))
             }
             setLoading(false)
@@ -61,17 +73,32 @@ export default function ChatPage() {
 
         const unsubscribe = subscribeToMessages({
             matchId,
-            onInsert: (msg: any) => {
+            onInsert: async (msg: any) => {
+                // Fetch profile for new message sender if needed
+                let senderName = "Unknown User"
+                if (msg.sender_id) {
+                    const { data } = await supabase.from("profiles").select("full_name").eq("id", msg.sender_id).single()
+                    if (data) senderName = data.full_name
+                }
+
                 setMessages((prev) => {
                     if (prev.find((m: any) => m.id === msg.id)) return prev
                     if (msg.deleted_by?.includes(user?.id)) return prev
-                    return [...prev, { ...msg, is_me: msg.sender_id === user?.id }]
+                    return [...prev, {
+                        ...msg,
+                        is_me: msg.sender_id === user?.id,
+                        sender_name: senderName
+                    }]
                 })
                 setTimeout(() => scrollRef.current?.scrollIntoView({ behavior: 'smooth' }), 100)
             },
             onUpdate: (updatedMsg: any) => {
                 setMessages((prev) => {
-                    const filtered = prev.map(m => m.id === updatedMsg.id ? { ...updatedMsg, is_me: updatedMsg.sender_id === user?.id } : m)
+                    const filtered = prev.map(m => m.id === updatedMsg.id ? {
+                        ...updatedMsg,
+                        is_me: updatedMsg.sender_id === user?.id,
+                        sender_name: m.sender_name // preserve name
+                    } : m)
                     return filterDeleted(filtered, user?.id || "")
                 })
             }
@@ -86,6 +113,70 @@ export default function ChatPage() {
         }
     }, [matchId, user?.id, router, filterDeleted])
 
+
+
+    useEffect(() => {
+        // ... (keep init logic)
+
+        // Subscription using the robust lib
+        const unsubscribe = subscribeToMessages(
+            matchId,
+            (msg: any) => { // onNewMessage
+                // Re-use existing logic for onInsert logic
+                // We need to adapt the signature slightly or just inline key parts
+
+                // Fetch profile for new message sender if needed
+                let senderName = "Unknown User"
+                // ... (profile fetch logic)
+                // Note: subscribeToMessages in lib/realtime.ts returns a function that returns a promise.
+
+                // Simplified adapter:
+                const handleNewMsg = async (m: any) => {
+                    let name = "Unknown User";
+                    if (m.sender_id) {
+                        // Check cache or fetch
+                        const { data } = await supabase.from("profiles").select("full_name").eq("id", m.sender_id).single();
+                        if (data) name = data.full_name;
+                    }
+
+                    setMessages((prev) => {
+                        if (prev.find((existing: any) => existing.id === m.id)) return prev
+                        if (m.deleted_by?.includes(user?.id)) return prev
+                        return [...prev, {
+                            ...m,
+                            is_me: m.sender_id === user?.id,
+                            sender_name: name
+                        }]
+                    });
+                    setTimeout(() => scrollRef.current?.scrollIntoView({ behavior: 'smooth' }), 100)
+                };
+                handleNewMsg(msg);
+            },
+            {
+                onMessageUpdate: (updatedMsg: any) => {
+                    setMessages((prev) => {
+                        const filtered = prev.map(m => m.id === updatedMsg.id ? {
+                            ...updatedMsg,
+                            is_me: updatedMsg.sender_id === user?.id,
+                            sender_name: m.sender_name // preserve name
+                        } : m)
+                        return filterDeleted(filtered, user?.id || "")
+                    })
+                },
+                currentUserId: user?.id
+            }
+        );
+
+        return () => {
+            // unsubscribe is an async function returned directly
+            // We can call it and voids its promise result
+            if (typeof unsubscribe === 'function') {
+                unsubscribe();
+            }
+        }
+    }, [matchId, user?.id, router, filterDeleted]);
+
+
     const handleSend = async (e: React.FormEvent) => {
         e.preventDefault()
         if (!newMessage.trim() || sending || !user) return
@@ -94,23 +185,12 @@ export default function ChatPage() {
         const content = newMessage.trim()
         setNewMessage("")
 
-        // Detect role correctly
-        const role = user.app_metadata?.role || user.user_metadata?.role
-        const tenantId = user.app_metadata?.tenant_id || user.user_metadata?.tenant_id
-
-        const insertData = {
-            match_id: matchId,
-            sender_id: user.id,
-            // Omit sender_role as it's causing PGRST204 (column missing in DB)
-            content,
-            tenant_id: tenantId
-        }
-
-        const { error } = await (supabase.from("messages") as any).insert(insertData)
-
-        if (error) {
-            console.error("[ChatPage] Send failed:", error)
-            setNewMessage(content)
+        try {
+            // Use robust sendMessage which handles retries and tenant_id
+            await sendMessage(matchId, user.id, content, user.app_metadata?.role || user.user_metadata?.role || 'user');
+        } catch (error: any) {
+            console.error("[ChatPage] Send failed:", error?.message || error)
+            setNewMessage(content) // Restore on failure
         }
         setSending(false)
     }
@@ -130,7 +210,7 @@ export default function ChatPage() {
     const handleDelete = async () => {
         if (!contextMenu || !user) return
         try {
-            await deleteMessageForMe(contextMenu.messageId, user.id)
+            await deleteMessage(contextMenu.messageId, user.id)
             setContextMenu(null)
         } catch (error) {
             console.error("Deletion failed:", error)
@@ -191,7 +271,7 @@ export default function ChatPage() {
                         messages.map((msg) => (
                             <div
                                 key={msg.id}
-                                className="flex flex-col cursor-pointer"
+                                className="flex flex-col cursor-pointer mb-2"
                                 onContextMenu={(e) => handleContextMenu(e, msg.id)}
                                 onTouchStart={(e) => {
                                     const timer = setTimeout(() => handleContextMenu(e as any, msg.id), 500)
@@ -200,6 +280,9 @@ export default function ChatPage() {
                                     e.currentTarget.addEventListener('touchmove', clear, { once: true })
                                 }}
                             >
+                                {!msg.is_me && (
+                                    <span className="text-[10px] text-zinc-500 ml-1 mb-1 font-medium">{msg.sender_name}</span>
+                                )}
                                 <MessageBubble message={msg} />
                                 <span className={`text-[10px] text-zinc-600 mt-1 ${msg.is_me ? 'text-right' : 'text-left'} px-1`}>
                                     {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
