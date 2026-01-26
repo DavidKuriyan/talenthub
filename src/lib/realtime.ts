@@ -108,9 +108,9 @@ export async function fetchMessageHistory(
       .order("created_at", { ascending: true })
       .range(offset, offset + limit - 1);
 
-    // Filter out messages deleted by the current user
+    // Filter out messages deleted for the current user
     if (userId) {
-      query = query.not("deleted_by", "cs", `{${userId}}`);
+      query = query.not("deleted_for", "cs", `{${userId}}`);
     }
 
     const { data, error } = await query;
@@ -118,7 +118,7 @@ export async function fetchMessageHistory(
     if (error) {
       // If column doesn't exist or cache stale, retry without the filter
       if ((error.code === '42703' || error.code === 'PGRST204') && userId) {
-        console.warn("[Realtime] 'deleted_by' column missing or cache stale, retrying without filter...");
+        console.warn("[Realtime] 'deleted_for' column missing, retrying without filter...");
         const fallbackQuery = (supabase.from("messages") as any)
           .select("*")
           .eq("match_id", matchId)
@@ -247,19 +247,19 @@ export async function deleteMessage(messageId: string, userId: string) {
         throw fetchError;
       }
 
-      const currentDeletedBy = (current as any)?.deleted_by || [];
-      if (Array.isArray(currentDeletedBy) && currentDeletedBy.includes(userId))
+      const currentDeletedFor = (current as any)?.deleted_for || [];
+      if (Array.isArray(currentDeletedFor) && currentDeletedFor.includes(userId))
         return true; // Already deleted
 
-      const newDeletedBy = Array.isArray(currentDeletedBy)
-        ? [...currentDeletedBy, userId]
+      const newDeletedFor = Array.isArray(currentDeletedFor)
+        ? [...currentDeletedFor, userId]
         : [userId];
 
       // 2. Update array
       const { error: updateError } = await (supabase
         .from("messages")
         .update({
-          deleted_by: newDeletedBy,
+          deleted_for: newDeletedFor,
         } as any)
         .eq("id", messageId) as any);
 
@@ -267,7 +267,7 @@ export async function deleteMessage(messageId: string, userId: string) {
         // specific handling for missing column
         if (updateError.code === "42703") {
           console.error(
-            "[Realtime] 'deleted_by' column missing. Cannot soft delete.",
+            "[Realtime] 'deleted_for' column missing. Run migration.",
           );
           // Depending on requirements, we might just swallow this or alert user
           throw new Error("Cannot delete message: Schema incompatible");

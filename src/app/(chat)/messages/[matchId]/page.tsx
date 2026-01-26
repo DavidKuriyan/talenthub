@@ -25,12 +25,29 @@ export default function ChatPage() {
     const scrollRef = useRef<HTMLDivElement>(null)
     const router = useRouter()
 
-    // Realtime Context
-    const { subscribe } = useRealtime();
+    // Realtime Context - must be at top level
+    const { subscribe, unsubscribe } = useRealtime();
+
+    // Profile cache to avoid redundant fetches
+    const profileCacheRef = useRef<Map<string, { full_name: string; role: string }>>(new Map());
 
     const filterDeleted = useCallback((msgs: any[], userId: string) => {
-        return msgs.filter(m => !m.deleted_by?.includes(userId))
+        return msgs.filter(m => !m.deleted_for?.includes(userId))
     }, [])
+
+    // Helper to fetch profile with caching
+    const fetchProfile = useCallback(async (userId: string) => {
+        if (profileCacheRef.current.has(userId)) {
+            return profileCacheRef.current.get(userId)!;
+        }
+
+        const { data } = await supabase.from("profiles").select("full_name, role").eq("id", userId).single();
+        if (data) {
+            profileCacheRef.current.set(userId, data);
+            return data;
+        }
+        return { full_name: "Unknown User", role: "user" };
+    }, []);
 
     // 1. Initial Load
     useEffect(() => {
@@ -59,6 +76,11 @@ export default function ChatPage() {
 
                 const profileMap = new Map(profilesData?.map(p => [p.id, p]) || [])
 
+                // Populate cache
+                profilesData?.forEach(p => {
+                    profileCacheRef.current.set(p.id, { full_name: p.full_name, role: p.role });
+                });
+
                 const visibleMessages = filterDeleted(messagesData, session.user.id)
                 setMessages(visibleMessages.map(m => ({
                     ...m,
@@ -78,34 +100,34 @@ export default function ChatPage() {
     useEffect(() => {
         if (!user || !matchId) return;
 
+        const channelKeys: string[] = [];
+
         // Insert
-        subscribe({
+        const insertKey = subscribe({
             table: 'messages',
             filter: `match_id=eq.${matchId}`,
             event: 'INSERT',
             onChange: async (payload) => {
                 const msg = payload.new;
-                let senderName = "Unknown User"
-                if (msg.sender_id) {
-                    const { data } = await supabase.from("profiles").select("full_name").eq("id", msg.sender_id).single()
-                    if (data) senderName = data.full_name
-                }
+                const profile = await fetchProfile(msg.sender_id);
 
                 setMessages((prev) => {
                     if (prev.find((m: any) => m.id === msg.id)) return prev
-                    if (msg.deleted_by?.includes(user?.id)) return prev
+                    if (msg.deleted_for?.includes(user?.id)) return prev
                     return [...prev, {
                         ...msg,
                         is_me: msg.sender_id === user?.id,
-                        sender_name: senderName
+                        sender_name: profile.full_name,
+                        sender_role_display: profile.role
                     }]
                 })
                 setTimeout(() => scrollRef.current?.scrollIntoView({ behavior: 'smooth' }), 100)
             }
         });
+        channelKeys.push(insertKey);
 
         // Update (Soft Delete)
-        subscribe({
+        const updateKey = subscribe({
             table: 'messages',
             filter: `match_id=eq.${matchId}`,
             event: 'UPDATE',
@@ -121,8 +143,14 @@ export default function ChatPage() {
                 })
             }
         });
+        channelKeys.push(updateKey);
 
-    }, [matchId, user, subscribe, filterDeleted]);
+        // Cleanup on unmount
+        return () => {
+            channelKeys.forEach(key => unsubscribe(key));
+        };
+
+    }, [matchId, user, subscribe, unsubscribe, filterDeleted, fetchProfile]);
 
     // 3. Click Listeners
     useEffect(() => {

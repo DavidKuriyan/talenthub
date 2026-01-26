@@ -10,7 +10,9 @@ type RealtimeContextType = {
         filter?: string;
         event?: 'INSERT' | 'UPDATE' | 'DELETE' | '*';
         onChange: (payload: any) => void;
-    }) => void;
+    }) => string; // Returns channelKey for unsubscribe
+    unsubscribe: (channelKey: string) => void;
+    unsubscribeAll: () => void;
 };
 
 const RealtimeContext = createContext<RealtimeContextType | null>(null);
@@ -21,6 +23,7 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
     // Cleanup on unmount
     useEffect(() => {
         return () => {
+            console.log('[RealtimeProvider] Cleaning up all subscriptions on unmount');
             channelsRef.current.forEach((channel) => {
                 supabase.removeChannel(channel);
             });
@@ -44,7 +47,7 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
         // Avoid duplicate subscriptions
         if (channelsRef.current.has(channelKey)) {
             console.log(`[Realtime] Already subscribed to ${channelKey}`);
-            return;
+            return channelKey;
         }
 
         console.log(`[Realtime] Subscribing to ${channelKey}`);
@@ -61,10 +64,28 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
             });
 
         channelsRef.current.set(channelKey, channel);
+        return channelKey;
+    };
+
+    const unsubscribe = (channelKey: string) => {
+        const channel = channelsRef.current.get(channelKey);
+        if (channel) {
+            console.log(`[Realtime] Unsubscribing from ${channelKey}`);
+            supabase.removeChannel(channel);
+            channelsRef.current.delete(channelKey);
+        }
+    };
+
+    const unsubscribeAll = () => {
+        console.log('[Realtime] Unsubscribing from all channels');
+        channelsRef.current.forEach((channel) => {
+            supabase.removeChannel(channel);
+        });
+        channelsRef.current.clear();
     };
 
     return (
-        <RealtimeContext.Provider value={{ subscribe }}>
+        <RealtimeContext.Provider value={{ subscribe, unsubscribe, unsubscribeAll }}>
             {children}
         </RealtimeContext.Provider>
     );

@@ -1,6 +1,6 @@
 export function MessageBubble({ message }: any) {
-    const isMe = message.is_me // compute from auth
-    const isOrg = message.sender_role === "organization"
+    const isMe = message.is_me
+    const isOrg = (message.sender_role || message.sender_role_display) === "organization"
 
     const base =
         "max-w-[75%] px-4 py-2 rounded-xl text-sm break-words"
