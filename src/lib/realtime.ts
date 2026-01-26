@@ -2,13 +2,13 @@ import { supabase, Tables } from "./supabase";
 
 type Message = Tables<"messages">;
 
-// Track active subscriptions and polling intervals
-const activePollingIntervals = new Map<string, NodeJS.Timeout>();
-const seenMessageIds = new Map<string, Set<string>>();
+// Track active subscriptions
+const activeChannels = new Map<string, any>();
 
 /**
  * @feature REALTIME_MESSAGING
- * @aiNote Enhanced realtime messaging with INSERT/UPDATE/DELETE support and auto-reconnect
+ * @aiNote Pure realtime messaging using Supabase postgres_changes. 
+ * Removed polling fallback as requested.
  */
 export function subscribeToMessages(
     matchId: string,
@@ -22,18 +22,10 @@ export function subscribeToMessages(
 ) {
     const { onMessageUpdate, onMessageDelete, onError, currentUserId } = options;
 
-    // Initialize seen messages set for this match
-    if (!seenMessageIds.has(matchId)) {
-        seenMessageIds.set(matchId, new Set());
-    }
-
     console.log(`[Realtime] Subscribing to match:${matchId} (currentUserId: ${currentUserId})`);
 
-    // Start polling fallback IMMEDIATELY as a safety net
-    startPolling(matchId, onNewMessage);
-
     const channel = supabase
-        .channel(`messages:${matchId}`)
+        .channel(`realtime:chat:${matchId}`)
         .on(
             "postgres_changes",
             {
@@ -43,19 +35,8 @@ export function subscribeToMessages(
                 filter: `match_id=eq.${matchId}`,
             },
             (payload) => {
-                console.log("[Realtime] INSERT received:", payload.new);
-                if (payload.new) {
-                    const msg = payload.new as Message;
-                    let seen = seenMessageIds.get(matchId);
-                    if (!seen) {
-                        // Subscription might have been cleaned up or not ready
-                        return;
-                    }
-                    if (!seen.has(msg.id)) {
-                        seen.add(msg.id);
-                        onNewMessage(msg);
-                    }
-                }
+                console.log("[Realtime] New Message Received");
+                onNewMessage(payload.new as Message);
             }
         )
         .on(
@@ -67,16 +48,8 @@ export function subscribeToMessages(
                 filter: `match_id=eq.${matchId}`,
             },
             (payload) => {
-                console.log("[Realtime] UPDATE received:", payload.new);
-                if (payload.new && (onMessageUpdate || onMessageDelete)) {
-                    const msg = payload.new as Message;
-                    // If message was deleted for this user, trigger a delete instead of update
-                    if (msg.deleted_by && currentUserId && msg.deleted_by.includes(currentUserId)) {
-                        if (onMessageDelete) onMessageDelete(msg.id);
-                    } else if (onMessageUpdate) {
-                        onMessageUpdate(msg);
-                    }
-                }
+                console.log("[Realtime] Message Updated");
+                if (onMessageUpdate) onMessageUpdate(payload.new as Message);
             }
         )
         .on(
@@ -88,84 +61,24 @@ export function subscribeToMessages(
                 filter: `match_id=eq.${matchId}`,
             },
             (payload) => {
-                console.log("[Realtime] DELETE received:", payload.old);
-                if (payload.old && onMessageDelete) {
+                console.log("[Realtime] Message Deleted");
+                if (onMessageDelete && payload.old) {
                     onMessageDelete((payload.old as any).id);
                 }
             }
         )
         .subscribe((status, err) => {
-            console.log(`[Realtime] Subscription status for match:${matchId}: ${status}`);
-
-            if (status === 'SUBSCRIBED') {
-                console.log(`[Realtime] Successfully subscribed to match:${matchId}`);
-                // We keep polling active as a safety net, but maybe slow it down or rely on realtime
-            }
-
+            console.log(`[Realtime] Sync Status for match ${matchId.slice(0, 8)}: ${status}`);
             if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || err) {
-                console.warn("[Realtime] Realtime channel error, legacy polling active", err);
+                console.error("[Realtime] Subscription Error Details:", err?.message || status);
                 if (onError) onError(err || new Error(status));
             }
         });
 
-    // Return unsubscribe function
     return async () => {
         console.log(`[Realtime] Unsubscribing from match:${matchId}`);
-        stopPolling(matchId);
-        seenMessageIds.delete(matchId);
         await supabase.removeChannel(channel);
     };
-}
-
-/**
- * Start polling fallback for when realtime fails
- */
-function startPolling(matchId: string, onNewMessage: (message: Message) => void) {
-    // Don't start duplicate polling
-    if (activePollingIntervals.has(matchId)) return;
-
-    console.log(`[Realtime] Starting polling fallback for match:${matchId}`);
-
-    if (!seenMessageIds.has(matchId)) {
-        seenMessageIds.set(matchId, new Set());
-    }
-
-    const interval = setInterval(async () => {
-        try {
-            const latestMessages = await fetchMessageHistory(matchId, 20, 0);
-            if (latestMessages && latestMessages.length > 0) {
-                let seen = seenMessageIds.get(matchId);
-                // Re-initialize if missing (rare race condition)
-                if (!seen) {
-                    seen = new Set();
-                    seenMessageIds.set(matchId, seen);
-                }
-
-                latestMessages.forEach((msg: any) => {
-                    if (msg.id && !seen!.has(msg.id)) {
-                        seen!.add(msg.id);
-                        onNewMessage(msg as Message);
-                    }
-                });
-            }
-        } catch (err) {
-            console.error("[Realtime] Polling error:", err);
-        }
-    }, 3000); // Poll every 3 seconds
-
-    activePollingIntervals.set(matchId, interval);
-}
-
-/**
- * Stop polling for a specific match
- */
-function stopPolling(matchId: string) {
-    const interval = activePollingIntervals.get(matchId);
-    if (interval) {
-        clearInterval(interval);
-        activePollingIntervals.delete(matchId);
-        console.log(`[Realtime] Stopped polling for match:${matchId}`);
-    }
 }
 
 /**
@@ -211,19 +124,6 @@ export async function fetchMessageHistory(
             }
 
             throw error;
-        }
-
-        // Mark all fetched messages as seen
-        if (data && !seenMessageIds.has(matchId)) {
-            seenMessageIds.set(matchId, new Set());
-        }
-        if (data) {
-            let seen = seenMessageIds.get(matchId);
-            if (!seen) {
-                seen = new Set();
-                seenMessageIds.set(matchId, seen);
-            }
-            data.forEach((msg: any) => seen!.add(msg.id));
         }
 
         return data || [];
@@ -306,6 +206,11 @@ export async function sendMessage(
  * Delete a message (soft delete by marking as deleted for the current user)
  */
 export async function deleteMessage(messageId: string, userId: string) {
+    if (!messageId || !userId) {
+        console.error("[Realtime] deleteMessage: Missing params", { messageId, userId });
+        throw new Error("Message ID and User ID are required for deletion");
+    }
+
     const { error } = await (supabase as any)
         .rpc("soft_delete_message", {
             message_id: messageId,
@@ -313,7 +218,12 @@ export async function deleteMessage(messageId: string, userId: string) {
         });
 
     if (error) {
-        console.error("[Realtime] Error deleting message:", error);
+        console.error("[Realtime] Error deleting message:", {
+            message: error.message,
+            code: error.code,
+            details: error.details,
+            hint: error.hint
+        });
         throw error;
     }
 
@@ -324,7 +234,7 @@ export async function deleteMessage(messageId: string, userId: string) {
 // GLOBAL REALTIME SYNC
 // ================================
 
-type TableName = 'matches' | 'interviews' | 'requirements' | 'profiles';
+export type TableName = 'matches' | 'interviews' | 'requirements' | 'profiles' | 'messages';
 
 /**
  * Subscribe to global table changes for real-time sync across the app

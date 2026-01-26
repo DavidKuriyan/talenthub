@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
+import { useRealtime } from "@/components/RealtimeProvider";
 
 /**
  * @feature ENGINEER_DASHBOARD
@@ -17,10 +18,11 @@ export default function EngineerDashboard() {
     });
     const [loading, setLoading] = useState(true);
     const [profile, setProfile] = useState<any>(null);
+    const lastUpdate = useRealtime();
 
     useEffect(() => {
         fetchData();
-    }, []);
+    }, [lastUpdate]);
 
     const fetchData = async () => {
         try {
@@ -33,22 +35,33 @@ export default function EngineerDashboard() {
                 .select("*")
                 .eq("user_id", session.user.id)
                 .maybeSingle();
+            setProfile(profileData as any);
+            const p = profileData as any;
 
-            setProfile(profileData);
+            if (p) {
+                // Fetch Matches first to get IDs for interviews/offers
+                const { data: matchesData } = await supabase
+                    .from("matches")
+                    .select("id")
+                    .eq("profile_id", p.id);
 
-            if (profileData) {
-                // Fetch Stats
-                const [matchesRes, interviewsRes, offersRes, messagesRes] = await Promise.all([
-                    supabase.from("matches").select("id", { count: 'exact', head: true }).eq("profile_id", (profileData as any).id),
-                    supabase.from("interviews").select("id", { count: 'exact', head: true }).eq("profile_id", (profileData as any).id),
-                    supabase.from("offers").select("id", { count: 'exact', head: true }).eq("profile_id", (profileData as any).id),
-                    supabase.from("messages").select("id", { count: 'exact', head: true }).eq("recipient_id", session.user.id).eq("is_read", false)
+                const matchIds = matchesData?.map(m => m.id) || [];
+
+                // Fetch other stats in parallel
+                const [interviewsRes, offersRes, messagesRes] = await Promise.all([
+                    matchIds.length > 0
+                        ? supabase.from("interviews").select("id", { count: 'exact', head: true }).in("match_id", matchIds)
+                        : Promise.resolve({ count: 0 }),
+                    matchIds.length > 0
+                        ? supabase.from("offer_letters").select("id", { count: 'exact', head: true }).in("match_id", matchIds)
+                        : Promise.resolve({ count: 0 }),
+                    supabase.from("messages").select("id", { count: 'exact', head: true }).eq("tenant_id", p.tenant_id)
                 ]);
 
                 setStats({
-                    matches: matchesRes.count || 0,
-                    interviews: interviewsRes.count || 0,
-                    offers: offersRes.count || 0,
+                    matches: matchIds.length,
+                    interviews: (interviewsRes as any).count || 0,
+                    offers: (offersRes as any).count || 0,
                     messages: messagesRes.count || 0
                 });
             }

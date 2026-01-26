@@ -4,6 +4,7 @@ import { useState, useEffect, Suspense } from "react";
 import { supabase } from "@/lib/supabase";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { useRealtime } from "@/components/RealtimeProvider";
 
 interface Requirement {
     id: string;
@@ -47,6 +48,7 @@ function MatchingContent() {
     const [selectedRequirement, setSelectedRequirement] = useState<Requirement | null>(null);
     const [loading, setLoading] = useState(true);
     const [tenantId, setTenantId] = useState<string | null>(null);
+    const lastUpdate = useRealtime();
 
     useEffect(() => {
         const checkSession = async () => {
@@ -116,7 +118,7 @@ function MatchingContent() {
         if (tenantId) {
             fetchData(tenantId);
         }
-    }, [requirementId, tenantId]);
+    }, [requirementId, tenantId, lastUpdate]);
 
     const handleCreateMatch = async (engineerId: string, score: number) => {
         if (!requirementId) return;

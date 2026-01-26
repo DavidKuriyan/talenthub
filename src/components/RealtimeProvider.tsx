@@ -1,17 +1,23 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState, createContext, useContext } from "react";
 import { supabase } from "@/lib/supabase";
-import { subscribeToTable } from "@/lib/realtime";
+import { subscribeToTable, TableName } from "@/lib/realtime";
 import { useRouter } from "next/navigation";
+
+// Context to share the update signal
+const RealtimeContext = createContext<number>(0);
+
+export const useRealtime = () => useContext(RealtimeContext);
 
 /**
  * @feature GLOBAL_SYNC
- * @aiNote High-level provider that manages real-time subscriptions for global tables
- * like matches, interviews, and requirements to keep the UI in sync without refreshes.
+ * @aiNote High-level provider that manages real-time subscriptions for global tables.
+ * It broadcasts a 'lastUpdate' signal that client components can use to re-fetch data.
  */
 export default function RealtimeProvider({ children }: { children: React.ReactNode }) {
     const router = useRouter();
+    const [lastUpdate, setLastUpdate] = useState(Date.now());
     const unsubscribesRef = useRef<(() => void)[]>([]);
 
     useEffect(() => {
@@ -20,37 +26,28 @@ export default function RealtimeProvider({ children }: { children: React.ReactNo
                 const { data: { session } } = await supabase.auth.getSession();
                 const tenantId = session?.user?.app_metadata?.tenant_id;
 
-                if (tenantId) {
-                    console.log(`[RealtimeProvider] Setting up global sync for tenant: ${tenantId}`);
+                // Cleanup any existing subscriptions first, regardless of tenantId
+                unsubscribesRef.current.forEach(unsub => unsub());
+                unsubscribesRef.current = [];
 
-                    // Cleanup any existing subscriptions first
-                    unsubscribesRef.current.forEach(unsub => unsub());
-                    unsubscribesRef.current = [];
+                if (tenantId) {
+                    console.log(`[RealtimeProvider] Active: Syncing for Tenant ${tenantId.slice(0, 8)}`);
 
                     // Define generic refresh handler
                     const handleUpdate = (payload: any) => {
-                        console.log("[RealtimeProvider] Global update detected, refreshing data...", payload);
-                        router.refresh();
+                        console.log(`[RealtimeProvider] Change in ${payload.table}: ${payload.eventType}`);
+                        setLastUpdate(Date.now()); // Trigger useRealtime hooks
+                        router.refresh();          // Trigger server component revalidation
                     };
 
-                    // Sync Matches
-                    const unsubMatches = subscribeToTable('matches', tenantId, handleUpdate, handleUpdate, handleUpdate);
+                    // Sync Matches, Interviews, Requirements, Profiles, and Messages
+                    const tables: TableName[] = ['matches', 'interviews', 'requirements', 'profiles', 'messages'];
 
-                    // Sync Interviews
-                    const unsubInterviews = subscribeToTable('interviews', tenantId, handleUpdate, handleUpdate, handleUpdate);
-
-                    // Sync Requirements
-                    const unsubRequirements = subscribeToTable('requirements', tenantId, handleUpdate, handleUpdate, handleUpdate);
-
-                    // Sync Profiles (for engineers)
-                    const unsubProfiles = subscribeToTable('profiles', tenantId, handleUpdate, handleUpdate, handleUpdate);
-
-                    unsubscribesRef.current = [
-                        () => { unsubMatches(); },
-                        () => { unsubInterviews(); },
-                        () => { unsubRequirements(); },
-                        () => { unsubProfiles(); }
-                    ];
+                    unsubscribesRef.current = tables.map(table =>
+                        subscribeToTable(table, tenantId, handleUpdate, handleUpdate, handleUpdate)
+                    );
+                } else {
+                    console.log("[RealtimeProvider] Idle: No tenantId found yet");
                 }
             } catch (error) {
                 console.error("[RealtimeProvider] Setup error:", error);
@@ -77,5 +74,9 @@ export default function RealtimeProvider({ children }: { children: React.ReactNo
         };
     }, [router]);
 
-    return <>{children}</>;
+    return (
+        <RealtimeContext.Provider value={lastUpdate}>
+            {children}
+        </RealtimeContext.Provider>
+    );
 }

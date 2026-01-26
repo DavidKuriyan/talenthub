@@ -2,16 +2,19 @@
 
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import { supabase } from "@/lib/supabase";
 import { fetchMessageHistory, sendMessage, subscribeToMessages, deleteMessage } from '@/lib/realtime';
 
 interface Message {
     id: string;
+    match_id: string;
     sender_id: string;
-    sender_role?: 'organization' | 'engineer';
+    sender_role: 'organization' | 'engineer';
     content: string;
     created_at: string;
     is_system_message?: boolean;
     deleted_by?: string[] | null;
+    read_at?: string | null;
 }
 
 interface ChatWindowProps {
@@ -57,6 +60,14 @@ export default function ChatWindow({
                 const history = await fetchMessageHistory(matchId);
                 setMessages(history as Message[]);
                 setTimeout(scrollToBottom, 100);
+
+                // Mark as read
+                if (currentUserId) {
+                    await (supabase as any).rpc("mark_messages_read", {
+                        p_match_id: matchId,
+                        p_user_id: currentUserId
+                    });
+                }
             } catch (err) {
                 console.error("Failed load history", err);
                 setError("Reload to see history");
@@ -65,19 +76,27 @@ export default function ChatWindow({
             }
         };
         loadHistory();
-    }, [matchId, scrollToBottom]);
+    }, [matchId, scrollToBottom, currentUserId]);
 
     useEffect(() => {
         if (!currentUserId || !matchId) return;
 
         const unsubscribe = subscribeToMessages(
             matchId,
-            (newMsg) => {
+            async (newMsg) => {
                 setMessages((prev) => {
                     if (prev.find(m => m.id === newMsg.id)) return prev;
                     return [...prev, newMsg as Message];
                 });
                 setTimeout(scrollToBottom, 100);
+
+                // Mark as read if not from me
+                if (newMsg.sender_id !== currentUserId) {
+                    await (supabase as any).rpc("mark_messages_read", {
+                        p_match_id: matchId,
+                        p_user_id: currentUserId
+                    });
+                }
             },
             {
                 onMessageUpdate: (updatedMsg) => {
@@ -138,8 +157,8 @@ export default function ChatWindow({
             await deleteMessage(messageId, currentUserId);
             setMessages((prev) => prev.filter(m => m.id !== messageId));
             setContextMenu(null);
-        } catch (err) {
-            console.error("Delete failed", err);
+        } catch (err: any) {
+            console.error("Delete failed:", err?.message || err);
         }
     };
 
@@ -219,14 +238,8 @@ export default function ChatWindow({
                             console.log(`[ChatWindow] Debug Alignment: Me=${currentUserId}, Sender=${msg.sender_id}, Match=${matchId}`);
                         }
 
-                        const normalizedMe = currentUserId?.trim();
-                        const normalizedSender = msg.sender_id?.trim();
-                        const isMe = normalizedMe && normalizedSender && normalizedMe === normalizedSender;
-
+                        const isMe = msg.sender_id === currentUserId;
                         const showMeta = index === 0 || messages[index - 1].sender_id !== msg.sender_id;
-
-                        // Fallback role detection if missing in DB
-                        const role = msg.sender_role || (isMe ? currentUserRole : (currentUserRole === 'engineer' ? 'organization' : 'engineer'));
 
                         if (msg.is_system_message) {
                             return (
@@ -236,6 +249,27 @@ export default function ChatWindow({
                                     </span>
                                 </div>
                             );
+                        }
+
+                        // STYLES based on the EXACT REQUIREMENTS:
+                        // Me (Organization): Solid INDIGO gradient (Right)
+                        // Me (Engineer): Solid EMERALD gradient (Right)
+                        // Them (Organization): Dark Gray + Indigo LEFT border (Left)
+                        // Them (Engineer): Dark Gray + Emerald LEFT border (Left)
+
+                        let bubbleStyle = "";
+                        if (isMe) {
+                            if (msg.sender_role === 'organization') {
+                                bubbleStyle = "bg-gradient-to-br from-indigo-600 to-indigo-800 text-white rounded-2xl rounded-tr-sm shadow-lg shadow-indigo-500/20";
+                            } else {
+                                bubbleStyle = "bg-gradient-to-br from-emerald-600 to-emerald-800 text-white rounded-2xl rounded-tr-sm shadow-lg shadow-emerald-500/20";
+                            }
+                        } else {
+                            if (msg.sender_role === 'organization') {
+                                bubbleStyle = "bg-zinc-800 border-l-4 border-indigo-500 text-zinc-100 rounded-2xl rounded-tl-sm";
+                            } else {
+                                bubbleStyle = "bg-zinc-800 border-l-4 border-emerald-500 text-zinc-100 rounded-2xl rounded-tl-sm";
+                            }
                         }
 
                         return (
@@ -253,24 +287,27 @@ export default function ChatWindow({
                                         </span>
                                     )}
 
-                                    <div className={`relative px-5 py-4 shadow-2xl transition-all duration-300 ${isMe
-                                        ? (role === 'organization'
-                                            ? 'bg-gradient-to-br from-indigo-600 to-purple-700 shadow-indigo-500/20'
-                                            : 'bg-gradient-to-br from-emerald-600 to-teal-700 shadow-emerald-500/20') + ' text-white rounded-[2rem] rounded-tr-sm'
-                                        : (role === 'organization'
-                                            ? 'bg-zinc-900 border-2 border-indigo-500 shadow-[0_0_15px_rgba(99,102,241,0.1)]'
-                                            : 'bg-zinc-900 border-2 border-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.1)]') + ' text-zinc-100 rounded-[2rem] rounded-tl-sm'
-                                        }`}>
+                                    <div className={`relative px-5 py-3 transition-all duration-300 ${bubbleStyle}`}>
                                         <p className="text-sm md:text-base font-medium leading-relaxed whitespace-pre-wrap break-words">
                                             {msg.content}
                                         </p>
 
-                                        {/* Timestamp - ALWAYS VISIBLE as requested */}
-                                        <div className={`mt-2 flex items-center gap-2 ${isMe ? 'text-white/50' : 'text-zinc-500'}`}>
-                                            <span className="text-[9px] font-black uppercase tracking-widest">
+                                        {/* Footer Area with Timestamp and Status */}
+                                        <div className="mt-1.5 flex items-center justify-between gap-3 min-w-[80px]">
+                                            <span className={`text-[9px] font-bold uppercase tracking-widest ${isMe ? 'text-white/60' : 'text-zinc-500'}`}>
                                                 {msg.created_at ? new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--:--'}
                                             </span>
-                                            {isMe && <span className="text-[10px]">✔</span>}
+
+                                            {isMe && (
+                                                <div className="flex items-center gap-1">
+                                                    <span className={`text-[9px] font-bold ${msg.read_at ? 'text-blue-300' : 'text-white/40'}`}>
+                                                        {msg.read_at ? 'Seen' : 'Sent'}
+                                                    </span>
+                                                    <span className={`text-[8px] ${msg.read_at ? 'text-blue-300' : 'text-white/40'}`}>
+                                                        {msg.read_at ? '✓✓' : '✓'}
+                                                    </span>
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
                                 </div>
@@ -307,19 +344,21 @@ export default function ChatWindow({
             </form>
 
             {/* Delete Menu */}
-            {contextMenu && (
-                <div
-                    className="fixed z-[999] bg-zinc-900 border border-white/10 rounded-2xl shadow-2xl overflow-hidden min-w-[200px]"
-                    style={{ top: contextMenu.y, left: contextMenu.x }}
-                >
-                    <button
-                        onClick={() => handleDeleteMessage(contextMenu.messageId)}
-                        className="w-full px-6 py-4 text-left text-red-400 hover:bg-red-400/10 transition-colors text-xs font-black uppercase tracking-widest flex items-center gap-3"
+            {
+                contextMenu && (
+                    <div
+                        className="fixed z-[999] bg-zinc-900 border border-white/10 rounded-2xl shadow-2xl overflow-hidden min-w-[200px]"
+                        style={{ top: contextMenu.y, left: contextMenu.x }}
                     >
-                        🗑️ Delete for me
-                    </button>
-                </div>
-            )}
-        </div>
+                        <button
+                            onClick={() => handleDeleteMessage(contextMenu.messageId)}
+                            className="w-full px-6 py-4 text-left text-red-400 hover:bg-red-400/10 transition-colors text-xs font-black uppercase tracking-widest flex items-center gap-3"
+                        >
+                            🗑️ Delete for me
+                        </button>
+                    </div>
+                )
+            }
+        </div >
     );
 }

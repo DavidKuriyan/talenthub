@@ -5,6 +5,7 @@ import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import EliteUpgrade from "@/components/organization/EliteUpgrade";
+import { useRealtime } from "@/components/RealtimeProvider";
 
 /**
  * @feature ORGANIZATION_DASHBOARD
@@ -23,10 +24,11 @@ export default function OrganizationDashboard() {
     const [tenant, setTenant] = useState<{ name: string, slug: string } | null>(null);
     const [user, setUser] = useState<any>(null); // Keeping user as any for now as session.user is complex
     const router = useRouter();
+    const lastUpdate = useRealtime(); // Listen to global updates
 
     useEffect(() => {
         fetchData();
-    }, []);
+    }, [lastUpdate]); // Re-fetch when global update occurs
 
     const fetchData = async () => {
         try {
@@ -80,10 +82,6 @@ export default function OrganizationDashboard() {
         }
     };
 
-    const handleLogout = async () => {
-        await supabase.auth.signOut();
-        window.location.href = "/organization/login";
-    };
 
     if (loading) return (
         <div className="min-h-screen bg-slate-950 flex items-center justify-center">

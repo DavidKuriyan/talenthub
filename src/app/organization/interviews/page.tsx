@@ -5,6 +5,7 @@ import { supabase } from "@/lib/supabase";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import VideoCallContainer from "@/components/video/VideoCallContainer";
+import { useRealtime } from "@/components/RealtimeProvider";
 
 interface Interview {
     id: string;
@@ -28,10 +29,11 @@ function InterviewsContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const filterMatchId = searchParams.get("matchId");
+    const lastUpdate = useRealtime();
 
     useEffect(() => {
         fetchInterviews();
-    }, [filterMatchId]);
+    }, [filterMatchId, lastUpdate]);
 
     const fetchInterviews = async () => {
         try {
@@ -192,7 +194,7 @@ function InterviewsContent() {
                                     </div>
                                     <div className="flex gap-4">
                                         <button
-                                            onClick={() => window.location.reload()}
+                                            onClick={() => router.refresh()}
                                             className="px-4 py-2 bg-zinc-800 text-white rounded-xl font-bold text-xs hover:bg-zinc-700 transition-all"
                                         >
                                             🔄 Reconnect

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 
 interface RequirementActionsProps {
     requirementId: string;
@@ -9,6 +10,7 @@ interface RequirementActionsProps {
 
 export default function RequirementActions({ requirementId, onClose }: RequirementActionsProps) {
     const [loading, setLoading] = useState(false);
+    const router = useRouter();
 
     const handleClose = async () => {
         if (!confirm("Are you sure you want to close this requirement?")) return;
@@ -20,7 +22,7 @@ export default function RequirementActions({ requirementId, onClose }: Requireme
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ id: requirementId, status: 'closed' })
             });
-            window.location.reload();
+            router.refresh();
         } catch (error) {
             console.error("Error closing requirement:", error);
         } finally {

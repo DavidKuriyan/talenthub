@@ -44,21 +44,14 @@ export default function NavBar() {
     const handleLogout = async () => {
         setLoading(true);
         try {
-            // Check if there's an active session first
-            const { data: { session } } = await supabase.auth.getSession();
+            console.log("[NavBar] Initiating logout...");
+            await supabase.auth.signOut();
 
-            // Only sign out if there's an active session
-            if (session) {
-                const { error } = await supabase.auth.signOut();
-
-                if (error) {
-                    console.error("Logout error:", error);
-                    // Continue to redirect even if server logout fails (clean local state)
-                }
+            // Clear any local storage that might persist state
+            if (typeof window !== 'undefined') {
+                window.localStorage.clear();
+                window.sessionStorage.clear();
             }
-
-            // Clear user state
-            setUser(null);
 
             // Context-aware redirect
             if (pathname?.startsWith("/organization")) {
@@ -68,10 +61,8 @@ export default function NavBar() {
             } else {
                 window.location.href = "/";
             }
-
-        } catch (error: any) {
+        } catch (error) {
             console.error("Logout exception:", error);
-            // Force redirect to home as fallback
             window.location.href = "/";
         } finally {
             setLoading(false);
