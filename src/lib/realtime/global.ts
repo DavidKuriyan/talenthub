@@ -13,7 +13,7 @@ export function subscribeToTable({
     onChange
 }: {
     table: GlobalTable
-    filterColumn: 'tenant_id' | 'profile_id' | 'user_id' | 'id'
+    filterColumn: 'tenant_id' | 'profile_id' | 'user_id' | 'id' | 'sender_id'
     filterValue: string
     onChange: (payload: any) => void
 }) {

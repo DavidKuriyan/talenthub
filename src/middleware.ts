@@ -13,43 +13,23 @@ export async function middleware(request: NextRequest) {
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
         process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
         {
+            auth: {
+                storageKey: 'talenthub-session',
+            },
             cookies: {
-                get(name: string) {
-                    return request.cookies.get(name)?.value
+                getAll() {
+                    return request.cookies.getAll()
                 },
-                set(name: string, value: string, options: CookieOptions) {
-                    request.cookies.set({
-                        name,
-                        value,
-                        ...options,
-                    })
+                setAll(cookiesToSet) {
+                    cookiesToSet.forEach(({ name, value, options }) => request.cookies.set(name, value))
                     response = NextResponse.next({
                         request: {
                             headers: request.headers,
                         },
                     })
-                    response.cookies.set({
-                        name,
-                        value,
-                        ...options,
-                    })
-                },
-                remove(name: string, options: CookieOptions) {
-                    request.cookies.set({
-                        name,
-                        value: '',
-                        ...options,
-                    })
-                    response = NextResponse.next({
-                        request: {
-                            headers: request.headers,
-                        },
-                    })
-                    response.cookies.set({
-                        name,
-                        value: '',
-                        ...options,
-                    })
+                    cookiesToSet.forEach(({ name, value, options }) =>
+                        response.cookies.set(name, value, options)
+                    )
                 },
             },
         }
@@ -88,13 +68,24 @@ export async function middleware(request: NextRequest) {
     if (session && isAuthPage) {
         // Context-aware dashboard redirection after login
         const role = session.user.app_metadata.role || session.user.user_metadata?.role
+        const path = request.nextUrl.pathname
 
-        if (role === 'admin' || role === 'super_admin') {
+        // Portal-aware redirection
+        if (path.startsWith('/admin')) {
             url.pathname = '/admin'
-        } else if (role === 'provider') {
+        } else if (path.startsWith('/engineer')) {
             url.pathname = '/engineer/profile'
-        } else {
+        } else if (path.startsWith('/organization')) {
             url.pathname = '/organization/dashboard'
+        } else {
+            // Default based on role if generic /login used
+            // super_admin and admin now default to organization dashboard 
+            // to avoid unnecessary admin portal jumps from generic pages.
+            if (role === 'provider') {
+                url.pathname = '/engineer/profile'
+            } else {
+                url.pathname = '/organization/dashboard'
+            }
         }
         return NextResponse.redirect(url)
     }

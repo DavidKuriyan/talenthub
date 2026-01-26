@@ -21,6 +21,7 @@ import { CartProvider } from "@/context/CartContext";
 import NavBar from "@/components/ui/NavBar";
 import MobileBottomNav from "@/components/ui/MobileBottomNav";
 import RealtimeProvider from "@/components/RealtimeProvider";
+import Script from "next/script";
 
 export default function RootLayout({
   children,
@@ -29,13 +30,14 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <head>
-        <script src="https://checkout.razorpay.com/v1/checkout.js" async></script>
-      </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
         suppressHydrationWarning
       >
+        <Script
+          src="https://checkout.razorpay.com/v1/checkout.js"
+          strategy="lazyOnload"
+        />
         <div className="min-h-screen bg-white dark:bg-zinc-950 text-zinc-900 dark:text-zinc-50 transition-colors">
           {/* Navigation Header */}
           <header className="sticky top-0 z-50 border-b border-zinc-200 dark:border-zinc-800 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-sm">

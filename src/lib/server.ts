@@ -9,23 +9,22 @@ export async function createClient() {
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
         process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
         {
+            auth: {
+                storageKey: 'talenthub-session',
+            },
             cookies: {
-                async get(name: string) {
-                    const cookie = await cookieStore.get(name);
-                    return cookie?.value;
+                getAll() {
+                    return cookieStore.getAll();
                 },
-                async set(name: string, value: string, options: CookieOptions) {
+                setAll(cookiesToSet) {
                     try {
-                        await cookieStore.set({ name, value, ...options });
+                        cookiesToSet.forEach(({ name, value, options }) =>
+                            cookieStore.set({ name, value, ...options })
+                        );
                     } catch {
-                        // Handle server action / router context
-                    }
-                },
-                async remove(name: string, options: CookieOptions) {
-                    try {
-                        await cookieStore.set({ name, value: "", ...options });
-                    } catch {
-                        // Handle server action / router context
+                        // The `setAll` method was called from a Server Component.
+                        // This can be ignored if you have middleware refreshing
+                        // user sessions.
                     }
                 },
             },

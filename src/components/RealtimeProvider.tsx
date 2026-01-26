@@ -16,7 +16,14 @@ export default function RealtimeProvider({ children }: { children: React.ReactNo
     useEffect(() => {
         const setupGlobalSync = async () => {
             try {
-                const { data: { session } } = await supabase.auth.getSession();
+                // Safety: check for session recovery errors
+                const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+
+                if (sessionError) {
+                    console.error("[EventBus] Session error:", sessionError);
+                    return;
+                }
+
                 if (!session) return;
 
                 const user = session.user;
