@@ -10,12 +10,15 @@ interface Message {
     id: string;
     match_id: string;
     sender_id: string;
-    sender_role: 'organization' | 'engineer';
     content: string;
     created_at: string;
     is_system_message?: boolean;
     deleted_for?: string[] | null;
     read_at?: string | null;
+    sender?: {
+        full_name?: string;
+        role?: string;
+    };
 }
 
 interface ChatWindowProps {
@@ -24,6 +27,7 @@ interface ChatWindowProps {
     currentUserName?: string;
     otherUserName?: string;
     currentUserRole?: 'organization' | 'engineer';
+    tenantId?: string; // Recommended for strict realtime isolation
 }
 
 /**
@@ -36,7 +40,8 @@ export default function ChatWindow({
     currentUserId,
     currentUserName = 'You',
     otherUserName = 'Participant',
-    currentUserRole = 'organization'
+    currentUserRole = 'organization',
+    tenantId
 }: ChatWindowProps) {
     const [messages, setMessages] = useState<Message[]>([]);
     const [newMessage, setNewMessage] = useState('');
@@ -123,7 +128,8 @@ export default function ChatWindow({
                 onMessageDelete: (deletedId) => {
                     setMessages((prev) => prev.filter(m => m.id !== deletedId));
                 },
-                currentUserId
+                currentUserId,
+                tenantId // Pass strict tenant filter
             }
         );
 
@@ -144,14 +150,18 @@ export default function ChatWindow({
             setNewMessage('');
 
             // Optimistic update
-            const tempMsg: Message = {
+            // Optimistic update
+            const tempMsg: any = {
                 id: tempId,
                 sender_id: currentUserId,
-                sender_role: currentUserRole,
                 content: content,
                 created_at: new Date().toISOString(),
-                match_id: matchId
-            } as any;
+                match_id: matchId,
+                sender: {
+                    role: currentUserRole === 'organization' ? 'admin' : 'provider', // Map 'organization' to a role that isn't 'provider'
+                    full_name: currentUserName
+                }
+            };
 
             setMessages(prev => [...prev, tempMsg]);
             setTimeout(scrollToBottom, 10);
@@ -291,25 +301,13 @@ export default function ChatWindow({
                         // Them (Organization): Dark Gray (zinc-800) + Indigo LEFT border (LEFT)
                         // Them (Engineer): Dark Gray (zinc-800) + Emerald LEFT border (LEFT)
 
-                        let bubbleStyle = "";
-                        if (isMe) {
-                            if (currentUserRole === 'organization') {
-                                bubbleStyle = "bg-gradient-to-br from-indigo-600 to-indigo-800 text-white rounded-2xl rounded-tr-sm shadow-lg shadow-indigo-500/20";
-                            } else {
-                                bubbleStyle = "bg-gradient-to-br from-emerald-600 to-emerald-800 text-white rounded-2xl rounded-tr-sm shadow-lg shadow-emerald-500/20";
-                            }
-                        } else {
-                            if (msg.sender_role === 'organization') {
-                                bubbleStyle = "bg-zinc-800 border-l-4 border-indigo-500 text-zinc-100 rounded-2xl rounded-tl-sm";
-                            } else {
-                                bubbleStyle = "bg-zinc-800 border-l-4 border-emerald-500 text-zinc-100 rounded-2xl rounded-tl-sm";
-                            }
-                        }
+                        // Styling logic delegated strictly to MessageBubble component
+                        // See src/components/chat/MessageBubble.tsx for the source of truth
 
                         return (
                             <div
                                 key={msg.id}
-                                className={`flex w-full group ${isMe ? 'justify-end' : 'justify-start'}`}
+                                className="w-full mb-2 group"
                                 onContextMenu={(e) => handleContextMenu(msg.id, e)}
                                 onTouchStart={(e) => handleTouchStart(msg.id, e)}
                                 onTouchEnd={handleTouchEnd}

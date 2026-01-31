@@ -62,7 +62,7 @@ export default function NavBar() {
         } catch (error: any) {
             console.error('[NavBar] Logout exception:', error);
             // Fallback redirect if server action fails somehow (rare)
-            router.replace('/login');
+            router.replace('/login/');
         } finally {
             setLoading(false);
         }

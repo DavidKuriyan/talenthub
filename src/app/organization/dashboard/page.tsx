@@ -66,16 +66,13 @@ export default function OrganizationDashboard() {
             const userData = session.user;
             setUser(userData);
 
-            // Role Check: Only allow organizations (admins or researchers/clients)
-            const role = userData.user_metadata?.role || userData.app_metadata?.role;
-            if (role === "provider") {
-                router.push("/engineer/dashboard");
-                return;
-            }
-
+            // Role & Tenant checks are now handled by middleware.ts protection.
+            // We just need to extract the tenantId for data fetching.
             const tenantId = userData.user_metadata?.tenant_id || userData.app_metadata?.tenant_id;
+
+            // Safety fallback if middleware somehow let a non-tenant user through
             if (!tenantId) {
-                router.push("/organization/register");
+                console.error("No tenant ID found despite middleware protection");
                 return;
             }
 

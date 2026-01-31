@@ -3,10 +3,9 @@ export function MessageBubble({ message, currentUserId }: { message: any, curren
     const isMe = message.sender_id === currentUserId;
 
     // 2. Role derivation
-    // message.sender_role is from DB. If missing, fallback is risky but we handle it.
-    // Ideally we trust the DB column 'sender_role' which we requested be 'organization' | 'engineer'
-    const isOrg = message.sender_role === "organization";
-    const senderIsOrg = message.sender_role === "organization";
+    const rawRole = message.sender?.role;
+    // Map 'provider' -> Engineer, everything else -> Organization
+    const isSenderOrg = rawRole && rawRole !== "provider";
 
     // Base styles
     const base = "max-w-[85%] sm:max-w-[75%] px-5 py-3 rounded-2xl text-sm break-words shadow-lg transition-all animate-in fade-in slide-in-from-bottom-2 duration-300";
@@ -16,27 +15,25 @@ export function MessageBubble({ message, currentUserId }: { message: any, curren
     let bubbleStyles = "";
 
     if (isMe) {
-        // Me - Always RIGHT
+        // I am the sender.
+        // If I am Org -> Indigo Right
+        // If I am Eng -> Emerald Right
         wrapperClass = "flex justify-end w-full";
 
-        // Check MY role (which we infer from the message I sent, assuming sender_role is accurate for the sender)
-        // Wait, if I am the sender, message.sender_role IS my role.
-        if (isOrg) {
-            // Me (Organization): Indigo Gradient
+        if (isSenderOrg) {
             bubbleStyles = "bg-gradient-to-br from-indigo-600 via-indigo-500 to-indigo-600 text-white rounded-tr-sm shadow-indigo-500/40";
         } else {
-            // Me (Engineer): Emerald Gradient
             bubbleStyles = "bg-gradient-to-br from-emerald-600 via-emerald-500 to-emerald-600 text-white rounded-tr-sm shadow-emerald-500/40";
         }
     } else {
-        // Them - Always LEFT
+        // Someone else is the sender.
+        // If Sender is Org -> Indigo Left
+        // If Sender is Eng -> Emerald Left
         wrapperClass = "flex justify-start w-full";
 
-        if (senderIsOrg) {
-            // Them (Organization): Dark + Indigo LEFT
+        if (isSenderOrg) {
             bubbleStyles = "bg-zinc-800/95 text-zinc-100 border-l-4 border-indigo-500 rounded-tl-sm backdrop-blur-sm";
         } else {
-            // Them (Engineer): Dark + Emerald LEFT
             bubbleStyles = "bg-zinc-800/95 text-zinc-100 border-l-4 border-emerald-500 rounded-tl-sm backdrop-blur-sm";
         }
     }

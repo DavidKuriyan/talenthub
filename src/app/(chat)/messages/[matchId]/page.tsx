@@ -94,7 +94,7 @@ export default function ChatPage() {
                 const visibleMessages = filterDeleted(messagesData, session.user.id)
                 setMessages(visibleMessages.map(m => ({
                     ...m,
-                    is_me: m.sender_id === session.user.id,
+                    // is_me: calculated in component
                     sender_name: profileMap.get(m.sender_id)?.full_name || "Unknown User",
                     sender_role_display: profileMap.get(m.sender_id)?.role || "user"
                 })))
@@ -126,7 +126,7 @@ export default function ChatPage() {
 
                     return [...prev, {
                         ...newMsg,
-                        is_me: newMsg.sender_id === user?.id,
+                        // is_me: calculated in component
                         sender_name: senderProfile.full_name,
                         sender_role_display: senderProfile.role
                     }];
@@ -259,7 +259,7 @@ export default function ChatPage() {
                         </div>
                     ) : (
                         messages.map((msg) => {
-                            const isMe = msg.is_me;
+                            // const isMe = msg.is_me; // REMOVED: Derived in MessageBubble
                             return (
                                 <div
                                     key={msg.id}

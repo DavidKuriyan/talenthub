@@ -4,7 +4,7 @@ import { useState, useEffect, Suspense } from "react";
 import { supabase } from "@/lib/supabase";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { useRealtime } from "@/components/RealtimeProvider";
+import { useRealtime } from "@/providers/RealtimeProvider";
 
 interface Requirement {
     id: string;

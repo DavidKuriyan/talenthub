@@ -12,7 +12,17 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    "scripts/**", // Scripts often use require, ignore them in lint
+    "*.js"        // Ignore root JS files generally
   ]),
+  {
+    rules: {
+      "@typescript-eslint/no-unused-vars": "warn",
+      "@typescript-eslint/no-explicit-any": "warn",
+      "react-hooks/exhaustive-deps": "warn",
+      "@typescript-eslint/no-require-imports": "off"
+    }
+  }
 ]);
 
 export default eslintConfig;

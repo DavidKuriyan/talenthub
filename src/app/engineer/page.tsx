@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
-import { useRealtime } from "@/components/RealtimeProvider";
+import { useRealtime } from "@/providers/RealtimeProvider";
 
 /**
  * @feature ENGINEER_DASHBOARD

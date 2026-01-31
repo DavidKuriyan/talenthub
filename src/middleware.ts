@@ -109,31 +109,50 @@ export async function middleware(request: NextRequest) {
 
     // Inject tenant context and perform basic authorization
     if (session?.user) {
-        // STRICT: No fallback to 'talenthub'. Tenant ID must exist in metadata.
         const tenantId = session.user.app_metadata.tenant_id || session.user.user_metadata?.tenant_id;
+        const role = session.user.app_metadata.role || session.user.user_metadata?.role;
 
-        if (!tenantId) {
-            // If no tenant is present, this user account is broken or invalid.
-            // Logout and force re-login to check integrity.
-            const forcedLogoutUrl = request.nextUrl.clone();
-            forcedLogoutUrl.pathname = '/login';
-            forcedLogoutUrl.searchParams.set('error', 'invalid_tenant');
-            // Clear cookies via response? Cannot easily do that here without specialized logic, 
-            // but redirecting to login usually triggers new flow.
-            return NextResponse.redirect(forcedLogoutUrl);
+        // 1. Tenant Check (Strict)
+        if (!tenantId && role !== 'admin' && role !== 'super_admin' && role !== 'provider') {
+            // Homeless Org User -> Force Register
+            if (!url.pathname.startsWith('/organization/register')) {
+                const registerUrl = request.nextUrl.clone();
+                registerUrl.pathname = '/organization/register';
+                return NextResponse.redirect(registerUrl);
+            }
+        } else if (!tenantId && role === 'provider') {
+            // Engineers might not have tenant_id initially if they are global? 
+            // Assuming usage of 'public' tenant or just allowing profile access.
+            // For now, we allow providers without tenant to access profile to get set up.
         }
 
-        // Authorized role protection for /admin (except login page)
+        // 2. Role-Based Route Protection (Strict)
+
+        // Block Providers (Engineers) from Organization Routes
+        if (url.pathname.startsWith('/organization') && role === 'provider') {
+            const redirectUrl = request.nextUrl.clone();
+            redirectUrl.pathname = '/engineer/profile';
+            return NextResponse.redirect(redirectUrl);
+        }
+
+        // Block Org Users from Engineer Routes
+        if (url.pathname.startsWith('/engineer') && role !== 'provider' && role !== 'admin' && role !== 'super_admin') {
+            const redirectUrl = request.nextUrl.clone();
+            redirectUrl.pathname = '/organization/dashboard';
+            return NextResponse.redirect(redirectUrl);
+        }
+
+        // Admin Route Protection
         if (url.pathname.startsWith('/admin') && url.pathname !== '/admin/login') {
-            const role = session.user.app_metadata.role || session.user.user_metadata?.role
             if (role !== 'admin' && role !== 'super_admin') {
-                // Not an admin? Send back to organization dashboard
-                url.pathname = '/organization/dashboard'
-                return NextResponse.redirect(url)
+                url.pathname = '/organization/dashboard';
+                return NextResponse.redirect(url);
             }
         }
 
-        response.headers.set('x-tenant-id', tenantId)
+        if (tenantId) {
+            response.headers.set('x-tenant-id', tenantId);
+        }
     }
 
     return response

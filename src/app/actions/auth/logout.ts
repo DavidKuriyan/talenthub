@@ -46,5 +46,5 @@ export async function logoutAction() {
     }
 
     // Force redirect to login
-    redirect("/login");
+    redirect("/login/");
 }
