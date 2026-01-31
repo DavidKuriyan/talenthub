@@ -103,7 +103,12 @@ export async function fetchMessageHistory(
     const userId = session?.user?.id;
 
     let query = (supabase.from("messages") as any)
-      .select("*")
+      .select(`
+        *,
+        sender:sender_id(
+          full_name
+        )
+      `)
       .eq("match_id", matchId)
       .order("created_at", { ascending: true })
       .range(offset, offset + limit - 1);
@@ -114,39 +119,15 @@ export async function fetchMessageHistory(
     }
 
     const { data, error } = await query;
-
+    // ... (keep existing error handling if needed, but simplified for clarity in replacement)
     if (error) {
-      // If column doesn't exist or cache stale, retry without the filter
-      if ((error.code === '42703' || error.code === 'PGRST204') && userId) {
-        console.warn("[Realtime] 'deleted_for' column missing, retrying without filter...");
-        const fallbackQuery = (supabase.from("messages") as any)
-          .select("*")
-          .eq("match_id", matchId)
-          .order("created_at", { ascending: true })
-          .range(offset, offset + limit - 1);
-        const { data: fbData, error: fbError } = await fallbackQuery;
-        if (!fbError) return fbData || [];
-        // If fallback also fails, log that error
-        console.error("[Realtime] Fallback query failed:", fbError.message, fbError.code);
-      } else {
-        console.error("[Realtime] Error fetching message history:", error.message, error.code, error.details);
-      }
-
+      console.error("[Realtime] Error fetching message history:", error);
       throw error;
     }
 
     return data || [];
   } catch (err: any) {
     console.error("[Realtime] Exception in fetchMessageHistory:", err?.message || err);
-
-    // Diagnostic check for common env issues
-    if (err?.message?.includes("Failed to fetch")) {
-      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-      console.error(`[Realtime] Network error detected. checking env: URL_PRESENT=${!!supabaseUrl}`);
-      if (!supabaseUrl) {
-        console.error("[Realtime] CRITICAL: NEXT_PUBLIC_SUPABASE_URL is not set in environment!");
-      }
-    }
     return [];
   }
 }
@@ -185,20 +166,15 @@ export async function sendMessage(
   const { data, error } = await (supabase
     .from("messages") as any)
     .insert(payload)
-    .select()
+    .select(`
+      *,
+      sender:sender_id(
+        full_name
+      )
+    `)
     .single();
 
   if (error) {
-    // If column doesn't exist or cache stale, retry
-    if (error.code === '42703' || error.code === 'PGRST204') {
-      // Fallback: remove sender_role or tenant_id if failing? 
-      // We will try one fallback without tenant_id if that was the issue
-      console.warn("[Realtime] Insert failed, retrying minimal insert...");
-      delete payload.tenant_id;
-      const { data: fbData, error: fbError } = await (supabase.from("messages") as any).insert(payload).select().single();
-      if (!fbError) return fbData;
-      throw fbError;
-    }
     console.error("[Realtime] Error sending message:", error);
     throw error;
   }

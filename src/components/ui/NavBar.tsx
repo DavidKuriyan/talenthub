@@ -5,6 +5,7 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
+import { logoutAction } from "@/app/actions/auth/logout";
 
 /**
  * @feature NAVBAR
@@ -46,35 +47,22 @@ export default function NavBar() {
         setLoading(true);
 
         try {
-            console.log('[NavBar] 🚪 Logging out...');
+            console.log('[NavBar] 🚪 Logging out via Server Action...');
 
-            // 1. Sign out from Supabase first
-            const { error } = await supabase.auth.signOut();
-            if (error) {
-                console.error('[NavBar] Supabase signOut error:', error.message);
-            }
-
-            // 2. Clear local storage manually to be safe
+            // Optional: Clear client-side storage just in case (audit requirement)
             if (typeof window !== 'undefined') {
                 localStorage.removeItem('talenthub-session');
-                // Also clear default supabase key just in case
                 localStorage.removeItem('supabase.auth.token');
                 sessionStorage.clear();
             }
 
-            // 3. Update local state
-            setUser(null);
-
-            // 4. Force hard redirect to login to clear server-side cookies/cache
-            // Using window.location.href ensures a full page reload which is safer for auth clearance
-            const redirectPath = '/login';
-            console.log('[NavBar] ✅ Logged out, redirecting to:', redirectPath);
-            window.location.href = redirectPath;
+            // Call Server Action
+            await logoutAction();
 
         } catch (error: any) {
             console.error('[NavBar] Logout exception:', error);
-            // Force redirect anyway
-            window.location.href = '/login';
+            // Fallback redirect if server action fails somehow (rare)
+            router.replace('/login');
         } finally {
             setLoading(false);
         }

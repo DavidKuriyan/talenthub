@@ -272,15 +272,8 @@ export default function ChatPage() {
                                         e.currentTarget.addEventListener('touchmove', clear, { once: true })
                                     }}
                                 >
-                                    {!isMe && (
-                                        <div className="flex justify-start mb-1 pl-1">
-                                            <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider">
-                                                {msg.sender_name}
-                                            </span>
-                                        </div>
-                                    )}
                                     {/* Strict usage of MessageBubble - logic delegated to component */}
-                                    <MessageBubble message={msg} />
+                                    <MessageBubble message={msg} currentUserId={user.id} />
                                 </div>
                             );
                         })

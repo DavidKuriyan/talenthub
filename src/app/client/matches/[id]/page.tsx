@@ -35,9 +35,11 @@ export default async function MatchDetailsPage(props: PageProps) {
             ),
             profiles (
                 id,
+                id,
                 user_id,
                 skills,
-                experience_years
+                experience_years,
+                full_name
             )
         `)
         .eq("id", id)
@@ -99,6 +101,10 @@ export default async function MatchDetailsPage(props: PageProps) {
                             <h3 className="font-semibold mb-4">Candidate Details</h3>
                             <div className="grid grid-cols-2 gap-4 text-sm">
                                 <div>
+                                    <span className="text-zinc-500 block">Name</span>
+                                    <span className="font-medium">{profile.full_name || "Anonymous Candidate"}</span>
+                                </div>
+                                <div>
                                     <span className="text-zinc-500 block">Experience</span>
                                     <span className="font-medium">{profile.experience_years} Years</span>
                                 </div>
@@ -121,6 +127,8 @@ export default async function MatchDetailsPage(props: PageProps) {
                         <ChatWindow
                             matchId={match.id}
                             currentUserId={userId}
+                            otherUserName={profile.full_name || "Engineer"}
+                            currentUserRole="organization"
                         />
                     </div>
                 </div>

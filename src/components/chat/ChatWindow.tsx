@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from "@/lib/supabase";
 import { fetchMessageHistory, sendMessage, subscribeToMessages, deleteMessage } from '@/lib/realtime';
+import { MessageBubble } from './MessageBubble';
 
 interface Message {
     id: string;
@@ -261,6 +262,11 @@ export default function ChatWindow({
                     </div>
                 ) : (
                     messages.map((msg, index) => {
+                        // Soft Delete Check
+                        if (msg.deleted_for && msg.deleted_for.includes(currentUserId)) {
+                            return null;
+                        }
+
                         // DEBUG: Check why alignment fails
                         if (index === 0) {
                             console.log(`[ChatWindow] Debug Alignment: Me=${currentUserId}, Sender=${msg.sender_id}, Match=${matchId}`);
@@ -308,42 +314,13 @@ export default function ChatWindow({
                                 onTouchStart={(e) => handleTouchStart(msg.id, e)}
                                 onTouchEnd={handleTouchEnd}
                             >
-                                <div className={`flex flex-col ${isMe ? 'items-end' : 'items-start'} max-w-[85%] md:max-w-[70%]`}>
-                                    {showMeta && !isMe && (
-                                        <span className="text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em] mb-2 ml-1">
-                                            {otherUserName}
-                                        </span>
-                                    )}
-
-                                    <div className={`relative px-5 py-3 transition-all duration-300 ${bubbleStyle}`}>
-                                        <p className="text-sm md:text-base font-medium leading-relaxed whitespace-pre-wrap break-words">
-                                            {msg.content}
-                                        </p>
-
-                                        {/* Footer Area with Timestamp and Status */}
-                                        <div className="mt-1.5 flex items-center justify-between gap-3 min-w-[80px]">
-                                            <span className={`text-[9px] font-bold uppercase tracking-widest ${isMe ? 'text-white/60' : 'text-zinc-500'}`}>
-                                                {msg.created_at ? new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--:--'}
-                                            </span>
-
-                                            {isMe && (
-                                                <div className="flex items-center gap-1">
-                                                    <span className={`text-[9px] font-bold ${msg.read_at ? 'text-blue-300' : 'text-white/40'}`}>
-                                                        {msg.read_at ? 'Seen' : 'Sent'}
-                                                    </span>
-                                                    <span className={`text-[8px] ${msg.read_at ? 'text-blue-300' : 'text-white/40'}`}>
-                                                        {msg.read_at ? '✓✓' : '✓'}
-                                                    </span>
-                                                </div>
-                                            )}
-                                        </div>
-                                    </div>
-                                </div>
+                                <MessageBubble message={msg} currentUserId={currentUserId} />
                             </div>
                         );
                     })
                 )}
             </div>
+
 
             {/* Input Area */}
             <form onSubmit={handleSend} className="p-4 md:p-6 border-t border-white/5 bg-zinc-900/50">

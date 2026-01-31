@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import type { RealtimeChannel } from '@supabase/supabase-js';
+import { useRealtime } from '@/providers/RealtimeProvider';
 
 export type MessageEvent = {
     type: 'INSERT' | 'UPDATE' | 'DELETE';
@@ -19,112 +20,48 @@ export function useMessagesRealtime({
     tenantId?: string;
     onEvent: (event: MessageEvent) => void;
 }) {
+    const { subscribe, unsubscribe } = useRealtime();
     const [isConnected, setIsConnected] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    const onEventRef = useRef(onEvent);
-    const channelRef = useRef<RealtimeChannel | null>(null);
-
-    // Keep callback ref updated
-    useEffect(() => {
-        onEventRef.current = onEvent;
-    }, [onEvent]);
 
     useEffect(() => {
-        if (!matchId) {
-            console.warn('[useMessagesRealtime] ⚠️ No matchId provided');
-            return;
+        if (!matchId) return;
+
+        // Use the global provider to subscribe
+        // IMPORTANT: We must use the correct filter as per requirements
+        // "match_id=eq.${matchId},tenant_id=eq.${tenantId}"
+
+        // Since the current RealtimeProvider 'subscribe' helper is a bit generic, 
+        // we might need to construct the filter carefully.
+        // The provider accepts `filter` string.
+
+        let filterString = `match_id=eq.${matchId}`;
+        if (tenantId) {
+            filterString += `,tenant_id=eq.${tenantId}`;
         }
 
-        // Validation: We need at least matchId; tenantId is optional but recommended
-        const channelName = tenantId
-            ? `messages:${tenantId}:${matchId}`
-            : `messages:${matchId}`;
-
-        console.log(`[useMessagesRealtime] 🔌 Subscribing to ${channelName}`);
-
-        // Clean up any existing channel
-        if (channelRef.current) {
-            console.log('[useMessagesRealtime] 🧹 Removing old channel');
-            supabase.removeChannel(channelRef.current);
-            channelRef.current = null;
-        }
-
-        const channel = supabase
-            .channel(channelName)
-            .on(
-                'postgres_changes',
-                {
-                    event: 'INSERT',
-                    schema: 'public',
-                    table: 'messages',
-                    filter: `match_id=eq.${matchId}`,
-                },
-                (payload) => {
-                    console.log('[useMessagesRealtime] 📨 INSERT:', payload.new);
-                    onEventRef.current({ type: 'INSERT', message: payload.new });
+        const channelKey = subscribe({
+            table: 'messages',
+            filter: filterString,
+            event: '*',
+            onChange: (payload) => {
+                // Map supabase payload to our event format
+                const type = payload.eventType; // INSERT, UPDATE, DELETE
+                if (type === 'DELETE') {
+                    onEvent({ type, messageId: payload.old.id });
+                } else {
+                    onEvent({ type, message: payload.new });
                 }
-            )
-            .on(
-                'postgres_changes',
-                {
-                    event: 'UPDATE',
-                    schema: 'public',
-                    table: 'messages',
-                    filter: `match_id=eq.${matchId}`,
-                },
-                (payload) => {
-                    console.log('[useMessagesRealtime] 🔄 UPDATE:', payload.new);
-                    onEventRef.current({ type: 'UPDATE', message: payload.new });
-                }
-            )
-            .on(
-                'postgres_changes',
-                {
-                    event: 'DELETE',
-                    schema: 'public',
-                    table: 'messages',
-                    filter: `match_id=eq.${matchId}`,
-                },
-                (payload) => {
-                    console.log('[useMessagesRealtime] 🗑️ DELETE:', payload.old);
-                    onEventRef.current({
-                        type: 'DELETE',
-                        messageId: (payload.old as any)?.id
-                    });
-                }
-            )
-            .subscribe((status, err) => {
-                console.log(`[useMessagesRealtime] 📡 Status: ${status}`);
+            }
+        });
 
-                if (status === 'SUBSCRIBED') {
-                    setIsConnected(true);
-                    setError(null);
-                    console.log('[useMessagesRealtime] ✅ Connected');
-                } else if (status === 'CHANNEL_ERROR') {
-                    setIsConnected(false);
-                    setError('Channel error - check Realtime settings');
-                    console.error('[useMessagesRealtime] ❌ Channel error:', err);
-                } else if (status === 'TIMED_OUT') {
-                    setIsConnected(false);
-                    setError('Connection timed out');
-                    console.error('[useMessagesRealtime] ⏱️ Timeout');
-                } else if (status === 'CLOSED') {
-                    setIsConnected(false);
-                    console.log('[useMessagesRealtime] 🔌 Connection closed');
-                }
-            });
-
-        channelRef.current = channel;
+        setIsConnected(true);
 
         return () => {
-            console.log('[useMessagesRealtime] 🧹 Cleanup: removing channel');
-            if (channelRef.current) {
-                supabase.removeChannel(channelRef.current);
-                channelRef.current = null;
-            }
+            unsubscribe(channelKey);
             setIsConnected(false);
         };
-    }, [matchId, tenantId]);
+    }, [matchId, tenantId, subscribe, unsubscribe, onEvent]);
 
     return { isConnected, error };
 }
