@@ -165,46 +165,41 @@ export async function sendMessage(
     throw new Error("Message content cannot be empty");
   }
 
-  // Attempt to get tenant_id from current session
+  // Attempt to get tenant_id - this is CRITICAL for RLS
   const { data: { session } } = await supabase.auth.getSession();
-  const tenantId = session?.user?.app_metadata?.tenant_id;
+  const tenantId = session?.user?.app_metadata?.tenant_id || session?.user?.user_metadata?.tenant_id;
+
+  const payload: any = {
+    match_id: matchId,
+    sender_id: senderId,
+    sender_role: senderRole,
+    content: content.trim(),
+    is_system_message: isSystemMessage
+  };
+
+  // Only add tenant_id if present, but for orgs it MUST be present
+  if (tenantId) {
+    payload.tenant_id = tenantId;
+  }
 
   const { data, error } = await (supabase
     .from("messages") as any)
-    .insert({
-      match_id: matchId,
-      sender_id: senderId,
-      sender_role: senderRole,
-      content: content.trim(),
-      is_system_message: isSystemMessage,
-      tenant_id: tenantId
-    })
+    .insert(payload)
     .select()
     .single();
 
   if (error) {
-    // If column doesn't exist or cache stale, retry with minimal fields
+    // If column doesn't exist or cache stale, retry
     if (error.code === '42703' || error.code === 'PGRST204') {
-      console.warn("[Realtime] One or more columns missing or cache stale, retrying minimal insert...");
-      const { data: fbData, error: fbError } = await (supabase
-        .from("messages") as any)
-        .insert({
-          match_id: matchId,
-          sender_id: senderId,
-          content: content.trim(),
-          is_system_message: isSystemMessage
-        })
-        .select()
-        .single();
-
+      // Fallback: remove sender_role or tenant_id if failing? 
+      // We will try one fallback without tenant_id if that was the issue
+      console.warn("[Realtime] Insert failed, retrying minimal insert...");
+      delete payload.tenant_id;
+      const { data: fbData, error: fbError } = await (supabase.from("messages") as any).insert(payload).select().single();
       if (!fbError) return fbData;
-
-      // If fallback also fails, log that error
-      console.error("[Realtime] Fallback insert failed:", fbError.message, fbError.code);
       throw fbError;
     }
-
-    console.error("[Realtime] Error sending message:", error.message, error.code, error.details);
+    console.error("[Realtime] Error sending message:", error);
     throw error;
   }
 
@@ -216,7 +211,6 @@ export async function sendMessage(
  */
 export async function deleteMessage(messageId: string, userId: string) {
   if (!messageId || !userId) {
-    console.error("[Realtime] deleteMessage: Missing params", { messageId, userId });
     throw new Error("Message ID and User ID are required for deletion");
   }
 
@@ -227,10 +221,7 @@ export async function deleteMessage(messageId: string, userId: string) {
     .eq('id', messageId)
     .single() as any);
 
-  if (fetchError) {
-    console.error("[Realtime] Fetch failed before delete:", fetchError);
-    throw fetchError;
-  }
+  if (fetchError) throw fetchError;
 
   const currentDeletedFor = (current as any)?.deleted_for || [];
 
@@ -243,20 +234,13 @@ export async function deleteMessage(messageId: string, userId: string) {
     ? [...currentDeletedFor, userId]
     : [userId];
 
-  // 3. Realtime-safe update  
-  // @ts-ignore - deleted_for not in generated Supabase types
-  const updateResult: any = await (supabase as any)
+  // 3. Update
+  const { error: updateError } = await (supabase as any)
     .from('messages')
     .update({ deleted_for: newDeletedFor })
     .eq('id', messageId);
 
-  const { error: updateError } = updateResult;
-
-  if (updateError) {
-    console.error("[Realtime] Delete update failed:", updateError);
-    throw updateError;
-  }
-
+  if (updateError) throw updateError;
   return true;
 }
 

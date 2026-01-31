@@ -68,6 +68,23 @@ export async function middleware(request: NextRequest) {
     if (session && isAuthPage) {
         // Context-aware dashboard redirection after login
         const role = session.user.app_metadata.role || session.user.user_metadata?.role
+        // Vital Check: Do NOT redirect to dashboard if tenant_id is missing for org users
+        const tenantId = session.user.app_metadata.tenant_id || session.user.user_metadata?.tenant_id;
+
+        // If user is basic/org role but has no tenant, let them stay on auth page (or maybe redirect to register?)
+        // Ideally, if they are on /login and have no tenant, send them to /organization/register
+        if (!tenantId && role !== 'admin' && role !== 'super_admin' && role !== 'provider') {
+            // Allow them to stay on the auth page to login/register, or force to register
+            // But if we return next(), it will show the login page even if logged in?
+            // Actually, if we return next() while logged in, the page logic might show "You are logged in"
+            // Let's redirect to register if they are effectively homeless
+            if (url.pathname !== '/organization/register') {
+                url.pathname = '/organization/register';
+                return NextResponse.redirect(url);
+            }
+            return NextResponse.next();
+        }
+
         const path = request.nextUrl.pathname
 
         // Portal-aware redirection

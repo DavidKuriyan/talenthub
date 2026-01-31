@@ -259,20 +259,11 @@ export default function ChatPage() {
                         </div>
                     ) : (
                         messages.map((msg) => {
-                            // Debug: Log message data
-                            if (messages.indexOf(msg) === 0) {
-                                console.log('[ChatPage] Sample message data:', {
-                                    is_me: msg.is_me,
-                                    sender_role: msg.sender_role,
-                                    sender_role_display: msg.sender_role_display,
-                                    sender_name: msg.sender_name
-                                });
-                            }
-
+                            const isMe = msg.is_me;
                             return (
                                 <div
                                     key={msg.id}
-                                    className="w-full mb-3 cursor-pointer"
+                                    className="w-full mb-3 cursor-pointer group"
                                     onContextMenu={(e) => handleContextMenu(e, msg.id)}
                                     onTouchStart={(e) => {
                                         const timer = setTimeout(() => handleContextMenu(e as any, msg.id), 500)
@@ -281,11 +272,14 @@ export default function ChatPage() {
                                         e.currentTarget.addEventListener('touchmove', clear, { once: true })
                                     }}
                                 >
-                                    {!msg.is_me && (
-                                        <div className="flex justify-start mb-1">
-                                            <span className="text-[10px] text-zinc-500 ml-1 font-semibold uppercase tracking-wider">{msg.sender_name}</span>
+                                    {!isMe && (
+                                        <div className="flex justify-start mb-1 pl-1">
+                                            <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider">
+                                                {msg.sender_name}
+                                            </span>
                                         </div>
                                     )}
+                                    {/* Strict usage of MessageBubble - logic delegated to component */}
                                     <MessageBubble message={msg} />
                                 </div>
                             );

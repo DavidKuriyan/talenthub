@@ -48,68 +48,33 @@ export default function NavBar() {
         try {
             console.log('[NavBar] 🚪 Logging out...');
 
-            // Clean up all realtime subscriptions
-            await supabase.removeAllChannels();
-
-            // Check if session exists before signing out
-            const { data: { session } } = await supabase.auth.getSession();
-
-            if (session) {
-                // Only attempt sign out if there's an active session
-                const { error } = await supabase.auth.signOut();
-
-                if (error && !error.message.includes('Auth session missing')) {
-                    console.error('[NavBar] Logout error:', error);
-                    throw error; // Re-throw non-session errors for proper handling
-                }
-            } else {
-                console.log('[NavBar] No active session, skipping signOut');
+            // 1. Sign out from Supabase first
+            const { error } = await supabase.auth.signOut();
+            if (error) {
+                console.error('[NavBar] Supabase signOut error:', error.message);
             }
 
-            // Clear local storage and session state
+            // 2. Clear local storage manually to be safe
             if (typeof window !== 'undefined') {
+                localStorage.removeItem('talenthub-session');
+                // Also clear default supabase key just in case
                 localStorage.removeItem('supabase.auth.token');
-                // Clear any cached session data
                 sessionStorage.clear();
             }
 
-            // Explicitly clear user state
+            // 3. Update local state
             setUser(null);
 
-            // Context-aware redirect using replace() to prevent back navigation
-            const redirectPath = isOrganizationPage
-                ? '/organization/login'
-                : isEngineerPage
-                    ? '/login'
-                    : '/login';
-
+            // 4. Force hard redirect to login to clear server-side cookies/cache
+            // Using window.location.href ensures a full page reload which is safer for auth clearance
+            const redirectPath = '/login';
             console.log('[NavBar] ✅ Logged out, redirecting to:', redirectPath);
+            window.location.href = redirectPath;
 
-            // Use replace() instead of push() to prevent back button navigation
-            router.replace(redirectPath);
-
-            // Small delay to ensure state is cleared before refresh
-            setTimeout(() => {
-                router.refresh();
-            }, 100);
         } catch (error: any) {
-            // Gracefully handle auth session errors (session already cleared)
-            if (error?.message?.includes('Auth session missing')) {
-                console.log('[NavBar] ℹ️ Session already cleared');
-            } else {
-                console.error('[NavBar] Logout failure:', error?.message || error);
-            }
-
-            // Clear user state even on error
-            setUser(null);
-
-            // Always redirect even if error occurs
-            const fallbackPath = isOrganizationPage ? '/organization/login' : '/login';
-            router.replace(fallbackPath);
-
-            setTimeout(() => {
-                router.refresh();
-            }, 100);
+            console.error('[NavBar] Logout exception:', error);
+            // Force redirect anyway
+            window.location.href = '/login';
         } finally {
             setLoading(false);
         }
