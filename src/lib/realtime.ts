@@ -243,13 +243,14 @@ export async function deleteMessage(messageId: string, userId: string) {
     ? [...currentDeletedFor, userId]
     : [userId];
 
-  // 3. Realtime-safe update
-  const { error: updateError } = await (supabase
+  // 3. Realtime-safe update  
+  // @ts-ignore - deleted_for not in generated Supabase types
+  const updateResult: any = await (supabase as any)
     .from('messages')
-    .update({
-      deleted_for: newDeletedFor,
-    })
-    .eq('id', messageId) as any);
+    .update({ deleted_for: newDeletedFor })
+    .eq('id', messageId);
+
+  const { error: updateError } = updateResult;
 
   if (updateError) {
     console.error("[Realtime] Delete update failed:", updateError);

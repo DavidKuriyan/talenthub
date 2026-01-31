@@ -1,8 +1,10 @@
 'use client';
 
-import { createContext, useContext, useEffect, useRef } from 'react';
+import { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { RealtimeChannel } from '@supabase/supabase-js';
+
+type TableName = 'messages' | 'matches' | 'interviews' | 'requirements' | 'profiles';
 
 type RealtimeContextType = {
     subscribe: (params: {
@@ -10,15 +12,22 @@ type RealtimeContextType = {
         filter?: string;
         event?: 'INSERT' | 'UPDATE' | 'DELETE' | '*';
         onChange: (payload: any) => void;
-    }) => string; // Returns channelKey for unsubscribe
+    }) => string;
     unsubscribe: (channelKey: string) => void;
     unsubscribeAll: () => void;
+    subscribeToGlobalChanges: (params: {
+        tenantId: string;
+        tables: TableName[];
+        onAnyChange: () => void;
+    }) => () => void;
+    lastUpdate: number; // Timestamp of last global update
 };
 
 const RealtimeContext = createContext<RealtimeContextType | null>(null);
 
 export function RealtimeProvider({ children }: { children: React.ReactNode }) {
     const channelsRef = useRef<Map<string, RealtimeChannel>>(new Map());
+    const [lastUpdate, setLastUpdate] = useState(0);
 
     // Cleanup on unmount
     useEffect(() => {
@@ -51,7 +60,6 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
         }
 
         console.log(`[Realtime] 🔌 Subscribing to ${channelKey}`);
-        console.log(`[Realtime] 📋 Config:`, { table, filter, event, schema: 'public' });
 
         const channel = supabase
             .channel(channelKey)
@@ -61,6 +69,7 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
                 (payload) => {
                     console.log(`[Realtime] 📨 Event received for ${channelKey}:`, payload);
                     onChange(payload);
+                    setLastUpdate(Date.now());
                 }
             )
             .subscribe((status, err) => {
@@ -68,17 +77,43 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
                 if (err) {
                     console.error(`[Realtime] ❌ Error for ${channelKey}:`, err);
                 }
-                if (status === 'SUBSCRIBED') {
-                    console.log(`[Realtime] ✅ Successfully subscribed to ${channelKey}`);
-                } else if (status === 'CHANNEL_ERROR') {
-                    console.error(`[Realtime] ❌ Channel error for ${channelKey}`);
-                } else if (status === 'TIMED_OUT') {
-                    console.error(`[Realtime] ⏱️ Timeout for ${channelKey}`);
-                }
             });
 
         channelsRef.current.set(channelKey, channel);
         return channelKey;
+    };
+
+    const subscribeToGlobalChanges = ({
+        tenantId,
+        tables,
+        onAnyChange,
+    }: {
+        tenantId: string;
+        tables: TableName[];
+        onAnyChange: () => void;
+    }) => {
+        console.log(`[RealtimeProvider] 🌍 Subscribing to global changes for tenant ${tenantId}`);
+
+        const channelKeys: string[] = [];
+
+        tables.forEach(table => {
+            const channelKey = subscribe({
+                table,
+                filter: `tenant_id=eq.${tenantId}`,
+                event: '*',
+                onChange: (payload) => {
+                    console.log(`[GlobalSync] ${table} changed:`, payload.eventType);
+                    setLastUpdate(Date.now());
+                    onAnyChange();
+                }
+            });
+            channelKeys.push(channelKey);
+        });
+
+        // Return cleanup function
+        return () => {
+            channelKeys.forEach(key => unsubscribe(key));
+        };
     };
 
     const unsubscribe = (channelKey: string) => {
@@ -99,7 +134,13 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
     };
 
     return (
-        <RealtimeContext.Provider value={{ subscribe, unsubscribe, unsubscribeAll }}>
+        <RealtimeContext.Provider value={{
+            subscribe,
+            unsubscribe,
+            unsubscribeAll,
+            subscribeToGlobalChanges,
+            lastUpdate
+        }}>
             {children}
         </RealtimeContext.Provider>
     );

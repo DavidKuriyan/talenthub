@@ -57,12 +57,13 @@ export async function deleteMessageForMe(messageId: string, userId: string) {
     const deletedFor = (current as any)?.deleted_for || [];
     if (deletedFor.includes(userId)) return true;
 
-    const { error } = await (supabase
+    // @ts-ignore - deleted_for not in generated Supabase types
+    const updateResult: any = await (supabase as any)
         .from('messages')
-        .update({
-            deleted_for: [...deletedFor, userId]
-        } as any)
-        .eq('id', messageId) as any);
+        .update({ deleted_for: [...deletedFor, userId] })
+        .eq('id', messageId);
+
+    const { error } = updateResult;
 
     if (error) {
         console.error("[Realtime] Delete failed:", error);

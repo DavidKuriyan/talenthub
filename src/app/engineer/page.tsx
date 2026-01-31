@@ -40,12 +40,12 @@ export default function EngineerDashboard() {
 
             if (p) {
                 // Fetch Matches first to get IDs for interviews/offers
-                const { data: matchesData } = await supabase
+                const { data: matchesData } = await (supabase
                     .from("matches")
                     .select("id")
-                    .eq("profile_id", p.id);
+                    .eq("profile_id", p.id) as any);
 
-                const matchIds = matchesData?.map(m => m.id) || [];
+                const matchIds = matchesData?.map((m: any) => m.id) || [];
 
                 // Fetch other stats in parallel
                 const [interviewsRes, offersRes, messagesRes] = await Promise.all([

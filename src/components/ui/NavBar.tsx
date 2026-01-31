@@ -46,12 +46,70 @@ export default function NavBar() {
         setLoading(true);
 
         try {
-            await supabase.auth.signOut();
-            router.push("/login");
+            console.log('[NavBar] 🚪 Logging out...');
+
+            // Clean up all realtime subscriptions
+            await supabase.removeAllChannels();
+
+            // Check if session exists before signing out
+            const { data: { session } } = await supabase.auth.getSession();
+
+            if (session) {
+                // Only attempt sign out if there's an active session
+                const { error } = await supabase.auth.signOut();
+
+                if (error && !error.message.includes('Auth session missing')) {
+                    console.error('[NavBar] Logout error:', error);
+                    throw error; // Re-throw non-session errors for proper handling
+                }
+            } else {
+                console.log('[NavBar] No active session, skipping signOut');
+            }
+
+            // Clear local storage and session state
+            if (typeof window !== 'undefined') {
+                localStorage.removeItem('supabase.auth.token');
+                // Clear any cached session data
+                sessionStorage.clear();
+            }
+
+            // Explicitly clear user state
+            setUser(null);
+
+            // Context-aware redirect using replace() to prevent back navigation
+            const redirectPath = isOrganizationPage
+                ? '/organization/login'
+                : isEngineerPage
+                    ? '/login'
+                    : '/login';
+
+            console.log('[NavBar] ✅ Logged out, redirecting to:', redirectPath);
+
+            // Use replace() instead of push() to prevent back button navigation
+            router.replace(redirectPath);
+
+            // Small delay to ensure state is cleared before refresh
+            setTimeout(() => {
+                router.refresh();
+            }, 100);
         } catch (error: any) {
-            console.error("Logout failure:", error?.message || error);
-            // Force redirect anyway
-            router.push("/login");
+            // Gracefully handle auth session errors (session already cleared)
+            if (error?.message?.includes('Auth session missing')) {
+                console.log('[NavBar] ℹ️ Session already cleared');
+            } else {
+                console.error('[NavBar] Logout failure:', error?.message || error);
+            }
+
+            // Clear user state even on error
+            setUser(null);
+
+            // Always redirect even if error occurs
+            const fallbackPath = isOrganizationPage ? '/organization/login' : '/login';
+            router.replace(fallbackPath);
+
+            setTimeout(() => {
+                router.refresh();
+            }, 100);
         } finally {
             setLoading(false);
         }
@@ -67,9 +125,13 @@ export default function NavBar() {
                         {user.email}
                     </span>
                     <button
-                        onClick={handleLogout}
+                        type="button"
+                        onClick={() => {
+                            console.log('[NavBar] 🖱️ Button clicked!');
+                            handleLogout();
+                        }}
                         disabled={loading}
-                        className="px-4 py-2 text-sm font-medium rounded-lg bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors"
+                        className="px-4 py-2 text-sm font-medium rounded-lg bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors cursor-pointer"
                     >
                         {loading ? "..." : "Logout"}
                     </button>

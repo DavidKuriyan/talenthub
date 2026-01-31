@@ -82,9 +82,9 @@ export default function ChatPage() {
                 const { data: profilesData } = await supabase
                     .from("profiles")
                     .select("id, full_name, role")
-                    .in("id", senderIds)
+                    .in("id", senderIds) as { data: Array<{ id: string; full_name: string; role: string }> | null }
 
-                const profileMap = new Map(profilesData?.map(p => [p.id, p]) || [])
+                const profileMap = new Map<string, { id: string; full_name: string; role: string }>(profilesData?.map(p => [p.id, p]) || [])
 
                 // Populate cache
                 profilesData?.forEach(p => {
@@ -106,52 +106,58 @@ export default function ChatPage() {
     }, [matchId, router, filterDeleted])
 
 
-    // Realtime Hook
-    useMessagesRealtime({
+    // Realtime Hook - now with direct event handling
+    const { isConnected, error: realtimeError } = useMessagesRealtime({
         matchId,
-        tenantId: user?.tenant_id,
-        onChange: async () => {
-            console.log('[ChatPage] 🔄 Realtime update triggered, refetching...');
+        tenantId: user?.user_metadata?.tenant_id || user?.app_metadata?.tenant_id,
+        onEvent: async (event) => {
+            console.log('[ChatPage] 🔄 Realtime event:', event.type);
 
-            // Re-fetch messages
-            const { data: messagesData, error: messagesError } = await supabase
-                .from("messages")
-                .select("*")
-                .eq("match_id", matchId)
-                .order("created_at", { ascending: true }) as { data: any[] | null, error: any }
+            if (event.type === 'INSERT' && event.message) {
+                // Direct state mutation for instant display
+                const newMsg = event.message;
 
-            if (messagesError) {
-                console.error("[ChatPage] Fetch error:", messagesError)
-                return
-            }
+                // Fetch sender profile if not cached
+                const senderProfile = await fetchProfile(newMsg.sender_id);
 
-            if (messagesData) {
-                // Fetch profiles for new senders
-                const senderIds = Array.from(new Set(messagesData.map(m => m.sender_id)))
-                const { data: profilesData } = await supabase
-                    .from("profiles")
-                    .select("id, full_name, role")
-                    .in("id", senderIds)
+                setMessages(prev => {
+                    // Prevent duplicates
+                    if (prev.find(m => m.id === newMsg.id)) return prev;
 
-                const profileMap = new Map(profilesData?.map(p => [p.id, p]) || [])
-
-                // Update cache
-                profilesData?.forEach(p => {
-                    profileCacheRef.current.set(p.id, { full_name: p.full_name, role: p.role });
+                    return [...prev, {
+                        ...newMsg,
+                        is_me: newMsg.sender_id === user?.id,
+                        sender_name: senderProfile.full_name,
+                        sender_role_display: senderProfile.role
+                    }];
                 });
 
-                const visibleMessages = filterDeleted(messagesData, user?.id || "")
-                setMessages(visibleMessages.map(m => ({
-                    ...m,
-                    is_me: m.sender_id === user?.id,
-                    sender_name: profileMap.get(m.sender_id)?.full_name || "Unknown User",
-                    sender_role_display: profileMap.get(m.sender_id)?.role || "user"
-                })))
+                setTimeout(() => scrollRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
+            }
+            else if (event.type === 'UPDATE' && event.message) {
+                // Update existing message (e.g., read status, soft delete)
+                const updatedMsg = event.message;
 
-                setTimeout(() => scrollRef.current?.scrollIntoView({ behavior: 'smooth' }), 100)
+                setMessages(prev => {
+                    // If soft-deleted for current user, remove it
+                    if (updatedMsg.deleted_for?.includes(user?.id)) {
+                        return prev.filter(m => m.id !== updatedMsg.id);
+                    }
+
+                    // Otherwise update in place
+                    return prev.map(m =>
+                        m.id === updatedMsg.id
+                            ? { ...m, ...updatedMsg }
+                            : m
+                    );
+                });
+            }
+            else if (event.type === 'DELETE' && event.messageId) {
+                // Hard delete (should be rare)
+                setMessages(prev => prev.filter(m => m.id !== event.messageId));
             }
         }
-    })
+    });
 
     // 3. Click Listeners
     useEffect(() => {
@@ -245,7 +251,7 @@ export default function ChatPage() {
 
             {/* Chat Area */}
             <div className="flex-1 overflow-y-auto custom-scrollbar">
-                <div className="max-w-4xl mx-auto p-6 space-y-4">
+                <div className="max-w-4xl mx-auto p-6 flex flex-col gap-3">
                     {messages.length === 0 ? (
                         <div className="flex flex-col items-center justify-center h-full py-20 opacity-20">
                             <span className="text-6xl mb-4">💬</span>
@@ -266,7 +272,7 @@ export default function ChatPage() {
                             return (
                                 <div
                                     key={msg.id}
-                                    className="flex flex-col cursor-pointer mb-2"
+                                    className="w-full mb-3 cursor-pointer"
                                     onContextMenu={(e) => handleContextMenu(e, msg.id)}
                                     onTouchStart={(e) => {
                                         const timer = setTimeout(() => handleContextMenu(e as any, msg.id), 500)
@@ -276,7 +282,9 @@ export default function ChatPage() {
                                     }}
                                 >
                                     {!msg.is_me && (
-                                        <span className="text-[10px] text-zinc-500 ml-1 mb-1 font-medium">{msg.sender_name}</span>
+                                        <div className="flex justify-start mb-1">
+                                            <span className="text-[10px] text-zinc-500 ml-1 font-semibold uppercase tracking-wider">{msg.sender_name}</span>
+                                        </div>
                                     )}
                                     <MessageBubble message={msg} />
                                 </div>

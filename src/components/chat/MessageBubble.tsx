@@ -4,26 +4,43 @@ export function MessageBubble({ message }: any) {
     const role = message.sender_role || message.sender_role_display
     const isOrg = role === "organization"
 
-    const base = "max-w-[75%] px-4 py-3 rounded-xl text-sm break-words shadow-sm transition-all animate-in fade-in slide-in-from-bottom-2 duration-300"
+    // Base styles for all message bubbles
+    const base = "max-w-[75%] px-5 py-3 rounded-2xl text-sm break-words shadow-lg transition-all animate-in fade-in slide-in-from-bottom-2 duration-300"
 
-    const styles = isMe
-        ? isOrg
-            // Me (Organization): Indigo Gradient + Right
-            ? "ml-auto bg-gradient-to-r from-indigo-600 to-indigo-500 text-white rounded-tr-none"
-            // Me (Engineer): Emerald Gradient + Right
-            : "ml-auto bg-gradient-to-r from-emerald-600 to-emerald-500 text-white rounded-tr-none"
-        : isOrg
-            // Them (Organization): Dark Gray + Indigo Border + Left
-            ? "mr-auto bg-zinc-800 text-zinc-100 border-l-4 border-indigo-500 rounded-tl-none"
-            // Them (Engineer): Dark Gray + Emerald Border + Left
-            : "mr-auto bg-zinc-800 text-zinc-100 border-l-4 border-emerald-500 rounded-tl-none"
+    // Determine alignment and colors based on sender
+    let wrapperClass = ""
+    let bubbleStyles = ""
+
+    if (isMe) {
+        // SENDER (Me) - Always RIGHT side
+        wrapperClass = "flex justify-end"
+        if (isOrg) {
+            // Me (Organization): Solid Indigo Gradient
+            bubbleStyles = "bg-gradient-to-br from-indigo-600 via-indigo-500 to-indigo-600 text-white rounded-tr-sm shadow-indigo-500/40"
+        } else {
+            // Me (Engineer): Solid Emerald Gradient
+            bubbleStyles = "bg-gradient-to-br from-emerald-600 via-emerald-500 to-emerald-600 text-white rounded-tr-sm shadow-emerald-500/40"
+        }
+    } else {
+        // RECEIVER (Them) - Always LEFT side
+        wrapperClass = "flex justify-start"
+        if (isOrg) {
+            // Them (Organization): Dark Gray + Indigo LEFT border
+            bubbleStyles = "bg-zinc-800/95 text-zinc-100 border-l-4 border-indigo-500 rounded-tl-sm backdrop-blur-sm"
+        } else {
+            // Them (Engineer): Dark Gray + Emerald LEFT border
+            bubbleStyles = "bg-zinc-800/95 text-zinc-100 border-l-4 border-emerald-500 rounded-tl-sm backdrop-blur-sm"
+        }
+    }
 
     return (
-        <div className={`${base} ${styles}`}>
-            <span className="block leading-relaxed">{message.content}</span>
-            <span className={`block text-[10px] mt-1.5 font-medium ${isMe ? 'text-white/70 text-right' : 'text-zinc-400 text-right'}`}>
-                {new Date(message.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-            </span>
+        <div className={wrapperClass}>
+            <div className={`${base} ${bubbleStyles}`}>
+                <p className="leading-relaxed whitespace-pre-wrap">{message.content}</p>
+                <span className={`block text-[10px] mt-2 font-semibold tracking-wide ${isMe ? 'text-white/60 text-right' : 'text-zinc-400 text-right'}`}>
+                    {new Date(message.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                </span>
+            </div>
         </div>
     )
 }

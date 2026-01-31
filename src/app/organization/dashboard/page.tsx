@@ -5,7 +5,7 @@ import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import EliteUpgrade from "@/components/organization/EliteUpgrade";
-import { useRealtime } from "@/components/RealtimeProvider";
+import { useRealtime } from "@/providers/RealtimeProvider";
 
 /**
  * @feature ORGANIZATION_DASHBOARD
@@ -22,13 +22,38 @@ export default function OrganizationDashboard() {
     });
     const [loading, setLoading] = useState(true);
     const [tenant, setTenant] = useState<{ name: string, slug: string } | null>(null);
-    const [user, setUser] = useState<any>(null); // Keeping user as any for now as session.user is complex
+    const [user, setUser] = useState<any>(null);
+    const [tenantId, setTenantId] = useState<string | null>(null);
     const router = useRouter();
-    const lastUpdate = useRealtime(); // Listen to global updates
+    const { subscribeToGlobalChanges, lastUpdate } = useRealtime();
 
+    // Initial load
     useEffect(() => {
         fetchData();
-    }, [lastUpdate]); // Re-fetch when global update occurs
+    }, []);
+
+    // Re-fetch when global realtime events occur
+    useEffect(() => {
+        if (lastUpdate > 0 && tenantId) {
+            console.log('[Dashboard] 🔄 Realtime update detected, refreshing stats');
+            fetchData();
+        }
+    }, [lastUpdate]);
+
+    // Subscribe to global changes
+    useEffect(() => {
+        if (!tenantId) return;
+
+        const cleanup = subscribeToGlobalChanges({
+            tenantId,
+            tables: ['matches', 'interviews', 'requirements', 'messages', 'profiles'],
+            onAnyChange: () => {
+                console.log('[Dashboard] 📊 Data changed, will refresh on next render');
+            }
+        });
+
+        return cleanup;
+    }, [tenantId, subscribeToGlobalChanges]);
 
     const fetchData = async () => {
         try {
@@ -53,6 +78,8 @@ export default function OrganizationDashboard() {
                 router.push("/organization/register");
                 return;
             }
+
+            setTenantId(tenantId);
 
             // Fetch Tenant and Stats
             const [tenantRes, engineersRes, reqsRes, matchesRes, interviewsRes, messagesRes] = await Promise.all([
