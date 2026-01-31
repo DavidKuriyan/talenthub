@@ -35,7 +35,10 @@ export async function middleware(request: NextRequest) {
         }
     )
 
-    const { data: { session } } = await supabase.auth.getSession()
+    const { data: { user }, error } = await supabase.auth.getUser()
+    // Map getUser result to session-like structure for existing logic compatibility if needed, 
+    // or just use 'user' directly. middleware logic uses 'session.user'.
+    const session = user ? { user } : null;
 
     const url = request.nextUrl.clone()
 

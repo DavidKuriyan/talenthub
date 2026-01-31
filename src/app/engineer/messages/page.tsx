@@ -23,13 +23,13 @@ export default function MessagesPage() {
     }, []);
 
     const checkSession = async () => {
-        const { data: { session: currentSession } } = await supabase.auth.getSession();
-        if (!currentSession) {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) {
             router.push("/login");
             return;
         }
-        setSession(currentSession);
-        loadConversations(currentSession.user.id);
+        setSession({ user });
+        loadConversations(user.id);
     };
 
     const loadConversations = async (userId: string) => {
@@ -90,7 +90,7 @@ export default function MessagesPage() {
                     name: req?.title || `Job Match #${m.id?.slice(0, 8)}`,
                     company: tenantsMap[tenantId] || "TalentHub Partner",
                     lastMessage: "Chat about this role",
-                    roomName: `${tenantId}_${m.id}`
+                    roomName: `tenant_${tenantId}_match_${m.id}`
                 };
             });
 

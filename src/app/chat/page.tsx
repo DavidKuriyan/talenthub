@@ -21,7 +21,8 @@ export default function ChatPage() {
         const setupSession = async () => {
             try {
                 // Get authenticated user session
-                const { data: { session }, error: authError } = await supabase.auth.getSession();
+                const { data: { user }, error: authError } = await supabase.auth.getUser();
+                const session = user ? { user } : null;
 
                 if (authError || !session?.user) {
                     setError("Please login to access chat");
