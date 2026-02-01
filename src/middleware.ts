@@ -42,6 +42,16 @@ export async function middleware(request: NextRequest) {
 
     const url = request.nextUrl.clone()
 
+    // CRITICAL FIX: Force clear cookies if logout flag present
+    // This prevents the session from persisting after logout
+    if (url.searchParams.get('logout') === 'true') {
+        response.cookies.delete('talenthub-session');
+        response.cookies.delete('sb-access-token');
+        response.cookies.delete('sb-refresh-token');
+        // Allow user to see login page without redirect
+        return response;
+    }
+
     // Public auth pages - all login and register routes
     const publicAuthPages = [
         '/login',
@@ -81,7 +91,9 @@ export async function middleware(request: NextRequest) {
         }
 
         // Otherwise, redirect to appropriate dashboard
-        const role = session.user.app_metadata.role || session.user.user_metadata?.role
+        // FIXED: Check BOTH app_metadata AND user_metadata for role
+        // This matches the login page behavior and prevents auth bypass
+        const role = session.user.app_metadata?.role || session.user.user_metadata?.role;
         const tenantId = session.user.app_metadata.tenant_id || session.user.user_metadata?.tenant_id;
 
         // If user is basic/org role but has no tenant, send them to /organization/register

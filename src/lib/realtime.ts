@@ -171,22 +171,23 @@ export async function sendMessage(
     throw new Error("Message content cannot be empty");
   }
 
-  // Attempt to get tenant_id - this is CRITICAL for RLS
+  // CRITICAL: Get tenant_id - required for RLS to allow INSERT
   const { data: { session } } = await supabase.auth.getSession();
   const tenantId = session?.user?.app_metadata?.tenant_id || session?.user?.user_metadata?.tenant_id;
+
+  // FIX: Validate tenantId exists to prevent silent failures
+  if (!tenantId) {
+    throw new Error("Session expired or tenant context missing. Please refresh the page and try again.");
+  }
 
   const payload: any = {
     match_id: matchId,
     sender_id: senderId,
     // sender_role removed: normalized to profiles table
     content: content.trim(),
-    is_system_message: isSystemMessage
+    is_system_message: isSystemMessage,
+    tenant_id: tenantId  // Now guaranteed to be present
   };
-
-  // Only add tenant_id if present, but for orgs it MUST be present
-  if (tenantId) {
-    payload.tenant_id = tenantId;
-  }
 
   const { data, error } = await (supabase
     .from("messages") as any)

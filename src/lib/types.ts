@@ -118,7 +118,7 @@ export interface Database {
                     sender_role: 'organization' | 'engineer'
                     content: string
                     deleted_for: string[] | null
-                    tenant_id: string | null
+                    tenant_id: string  // NOT NULL (enforced by migration 121)
                     created_at: string
                     is_system_message: boolean
                 }
@@ -129,7 +129,7 @@ export interface Database {
                     sender_role?: 'organization' | 'engineer'
                     content: string
                     deleted_for?: string[] | null
-                    tenant_id?: string | null
+                    tenant_id: string  // Required for multi-tenant isolation
                     created_at?: string
                     is_system_message?: boolean
                 }

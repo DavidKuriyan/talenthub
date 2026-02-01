@@ -62,9 +62,6 @@ export default function OrganizationLoginPage() {
 
             await logAuthEvent("login", { email, tenant: selectedTenant, portal: "organization" });
 
-            // Store selected tenant
-            localStorage.setItem("selected_tenant", selectedTenant);
-
             // Route based on role
             const role = signInData.user?.user_metadata?.role || signInData.user?.app_metadata?.role;
 

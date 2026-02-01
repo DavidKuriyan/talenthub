@@ -40,8 +40,8 @@ export async function logoutAction() {
         }
     );
 
-    // 2. Perform Supabase SignOut
-    await supabase.auth.signOut();
+    // 2. Perform Supabase SignOut (global scope for complete invalidation)
+    await supabase.auth.signOut({ scope: 'global' });
 
     // 3. CRITICAL: Explicitly delete cookies at the source
     // This removes the custom session cookie

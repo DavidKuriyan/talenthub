@@ -5,7 +5,7 @@ import { supabase } from '@/lib/supabase';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import { useRealtime } from '@/providers/RealtimeProvider';
 
-export type MessageEvent = {
+export type RealtimeMessageEvent = {
     type: 'INSERT' | 'UPDATE' | 'DELETE';
     message?: any;
     messageId?: string;
@@ -17,8 +17,8 @@ export function useMessagesRealtime({
     onEvent,
 }: {
     matchId: string;
-    tenantId?: string;
-    onEvent: (event: MessageEvent) => void;
+    tenantId: string;  // Required for proper tenant isolation
+    onEvent: (event: RealtimeMessageEvent) => void;
 }) {
     const { subscribe, unsubscribe } = useRealtime();
     const [isConnected, setIsConnected] = useState(false);
@@ -35,10 +35,8 @@ export function useMessagesRealtime({
         // we might need to construct the filter carefully.
         // The provider accepts `filter` string.
 
-        let filterString = `match_id=eq.${matchId}`;
-        if (tenantId) {
-            filterString += `,tenant_id=eq.${tenantId}`;
-        }
+        // Filter by both match_id AND tenant_id for proper isolation
+        const filterString = `match_id=eq.${matchId},tenant_id=eq.${tenantId}`;
 
         const channelKey = subscribe({
             table: 'messages',

@@ -4,7 +4,7 @@ import { useEffect, useState, useRef, useCallback } from "react"
 import { supabase } from "@/lib/supabase"
 import { sendMessage, deleteMessage } from "@/lib/realtime"
 // import { useRealtime } from "@/providers/RealtimeProvider"
-import { useMessagesRealtime } from "@/hooks/useMessagesRealtime"
+import { useMessagesRealtime, type RealtimeMessageEvent } from "@/hooks/useMessagesRealtime"
 import { MessageBubble } from "@/components/chat/MessageBubble"
 import { useParams, useRouter } from "next/navigation"
 import Link from "next/link"
@@ -106,57 +106,60 @@ export default function ChatPage() {
     }, [matchId, router, filterDeleted])
 
 
-    // Realtime Hook - now with direct event handling
+    // Realtime event handler (memoized to prevent re-subscriptions)
+    const handleRealtimeEvent = useCallback(async (event: RealtimeMessageEvent) => {
+        console.log('[ChatPage] 🔄 Realtime event:', event.type);
+
+        if (event.type === 'INSERT' && event.message) {
+            // Direct state mutation for instant display
+            const newMsg = event.message;
+
+            // Fetch sender profile if not cached
+            const senderProfile = await fetchProfile(newMsg.sender_id);
+
+            setMessages(prev => {
+                // Prevent duplicates
+                if (prev.find(m => m.id === newMsg.id)) return prev;
+
+                return [...prev, {
+                    ...newMsg,
+                    // is_me: calculated in component
+                    sender_name: senderProfile.full_name,
+                    sender_role_display: senderProfile.role
+                }];
+            });
+
+            setTimeout(() => scrollRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
+        }
+        else if (event.type === 'UPDATE' && event.message) {
+            // Update existing message (e.g., read status, soft delete)
+            const updatedMsg = event.message;
+
+            setMessages(prev => {
+                // If soft-deleted for current user, remove it
+                if (updatedMsg.deleted_for?.includes(user?.id)) {
+                    return prev.filter(m => m.id !== updatedMsg.id);
+                }
+
+                // Otherwise update in place
+                return prev.map(m =>
+                    m.id === updatedMsg.id
+                        ? { ...m, ...updatedMsg }
+                        : m
+                );
+            });
+        }
+        else if (event.type === 'DELETE' && event.messageId) {
+            // Hard delete (should be rare)
+            setMessages(prev => prev.filter(m => m.id !== event.messageId));
+        }
+    }, [user, fetchProfile]);
+
+    // Realtime Hook - now with memoized event handler
     const { isConnected, error: realtimeError } = useMessagesRealtime({
         matchId,
-        tenantId: user?.user_metadata?.tenant_id || user?.app_metadata?.tenant_id,
-        onEvent: async (event) => {
-            console.log('[ChatPage] 🔄 Realtime event:', event.type);
-
-            if (event.type === 'INSERT' && event.message) {
-                // Direct state mutation for instant display
-                const newMsg = event.message;
-
-                // Fetch sender profile if not cached
-                const senderProfile = await fetchProfile(newMsg.sender_id);
-
-                setMessages(prev => {
-                    // Prevent duplicates
-                    if (prev.find(m => m.id === newMsg.id)) return prev;
-
-                    return [...prev, {
-                        ...newMsg,
-                        // is_me: calculated in component
-                        sender_name: senderProfile.full_name,
-                        sender_role_display: senderProfile.role
-                    }];
-                });
-
-                setTimeout(() => scrollRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
-            }
-            else if (event.type === 'UPDATE' && event.message) {
-                // Update existing message (e.g., read status, soft delete)
-                const updatedMsg = event.message;
-
-                setMessages(prev => {
-                    // If soft-deleted for current user, remove it
-                    if (updatedMsg.deleted_for?.includes(user?.id)) {
-                        return prev.filter(m => m.id !== updatedMsg.id);
-                    }
-
-                    // Otherwise update in place
-                    return prev.map(m =>
-                        m.id === updatedMsg.id
-                            ? { ...m, ...updatedMsg }
-                            : m
-                    );
-                });
-            }
-            else if (event.type === 'DELETE' && event.messageId) {
-                // Hard delete (should be rare)
-                setMessages(prev => prev.filter(m => m.id !== event.messageId));
-            }
-        }
+        tenantId: user?.user_metadata?.tenant_id || user?.app_metadata?.tenant_id || '',
+        onEvent: handleRealtimeEvent
     });
 
     // 3. Click Listeners
@@ -248,6 +251,21 @@ export default function ChatPage() {
                     </div>
                 </div>
             </header>
+
+            {/* Error Banner for Realtime Connection Issues */}
+            {realtimeError && (
+                <div className="max-w-4xl mx-auto px-6 py-3">
+                    <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-4 flex items-center gap-3">
+                        <span className="text-2xl">⚠️</span>
+                        <div className="flex-1">
+                            <p className="text-red-400 font-bold text-sm">Connection Issue</p>
+                            <p className="text-red-300/70 text-xs">
+                                Real-time updates may be delayed. {realtimeError}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Chat Area */}
             <div className="flex-1 overflow-y-auto custom-scrollbar">
