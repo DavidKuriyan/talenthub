@@ -136,7 +136,8 @@ export default function ChatWindow({
         return () => {
             unsubscribe();
         };
-    }, [matchId, scrollToBottom, currentUserId]);
+    }, [matchId, scrollToBottom, currentUserId, tenantId]);
+
 
     const handleSend = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -150,18 +151,14 @@ export default function ChatWindow({
             setNewMessage('');
 
             // Optimistic update
-            // Optimistic update
             const tempMsg: any = {
                 id: tempId,
                 sender_id: currentUserId,
                 content: content,
                 created_at: new Date().toISOString(),
-                match_id: matchId,
-                sender: {
-                    role: currentUserRole === 'organization' ? 'admin' : 'provider', // Map 'organization' to a role that isn't 'provider'
-                    full_name: currentUserName
-                }
+                match_id: matchId
             };
+
 
             setMessages(prev => [...prev, tempMsg]);
             setTimeout(scrollToBottom, 10);
@@ -312,7 +309,11 @@ export default function ChatWindow({
                                 onTouchStart={(e) => handleTouchStart(msg.id, e)}
                                 onTouchEnd={handleTouchEnd}
                             >
-                                <MessageBubble message={msg} currentUserId={currentUserId} />
+                                <MessageBubble
+                                    message={msg}
+                                    currentUserId={currentUserId}
+                                    currentUserRole={currentUserRole}
+                                />
                             </div>
                         );
                     })

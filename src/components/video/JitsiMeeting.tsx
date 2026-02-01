@@ -1,87 +1,242 @@
-'use client';
+"use client";
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from "react";
 
 interface JitsiMeetingProps {
-    roomId: string;
-    width?: string | number;
-    height?: string | number;
-    userName?: string;
+  roomId: string;
+  width?: string | number;
+  height?: string | number;
+  userName?: string;
+  displayName?: string;
+  email?: string;
+  onReady?: () => void;
+  onError?: (error: Error) => void;
 }
 
-export default function JitsiMeeting({ roomId, width = '100%', height = 600, userName }: JitsiMeetingProps) {
-    const [copied, setCopied] = useState(false);
-    const jitsiUrl = `https://meet.jit.si/${roomId}`;
-
-    const copyLink = () => {
-        navigator.clipboard.writeText(jitsiUrl);
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2000);
-    };
-
-    const openInBrowser = () => {
-        window.open(jitsiUrl, '_blank', 'noopener,noreferrer');
-    };
-
-    return (
-        <div
-            style={{ width, height }}
-            className="rounded-3xl overflow-hidden border border-zinc-100 dark:border-zinc-800 bg-zinc-950 flex flex-col items-center justify-center p-8 relative shadow-2xl"
-        >
-            <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/10 via-transparent to-purple-500/10 pointer-events-none" />
-
-            <div className="flex flex-col items-center gap-6 z-10 text-center max-w-md">
-                <div className="w-24 h-24 rounded-full bg-zinc-900 border border-zinc-800 flex items-center justify-center text-4xl shadow-xl animate-pulse">
-                    👤
-                </div>
-
-                <div className="space-y-2">
-                    <h3 className="text-2xl font-bold text-white tracking-tight">Interview Room Ready</h3>
-                    <p className="text-zinc-400 text-sm">
-                        Room: <code className="text-indigo-400 font-mono tracking-tighter ml-1">{roomId}</code>
-                    </p>
-                </div>
-
-                {/* Action Buttons */}
-                <div className="flex gap-3 mt-4">
-                    <button
-                        onClick={openInBrowser}
-                        className="px-6 py-3 bg-gradient-to-r from-indigo-500 to-purple-600 text-white rounded-xl font-bold text-sm hover:opacity-90 transition-opacity flex items-center gap-2 shadow-lg shadow-indigo-500/20"
-                    >
-                        🎥 Join Meeting
-                    </button>
-                    <button
-                        onClick={copyLink}
-                        className="px-4 py-3 bg-zinc-800 border border-zinc-700 text-zinc-300 rounded-xl font-bold text-sm hover:bg-zinc-700 transition-colors flex items-center gap-2"
-                    >
-                        {copied ? '✓ Copied!' : '📋 Copy Link'}
-                    </button>
-                </div>
-
-                <div className="mt-4 p-4 rounded-2xl bg-white/5 backdrop-blur-sm border border-white/10 w-full">
-                    <div className="flex items-center justify-between text-xs mb-3">
-                        <span className="text-zinc-400 font-bold uppercase tracking-wider">Meeting Link</span>
-                        <span className="text-emerald-400 font-mono">● READY</span>
-                    </div>
-                    <p className="text-xs text-indigo-400 font-mono break-all bg-zinc-900/50 p-2 rounded-lg border border-zinc-800">
-                        {jitsiUrl}
-                    </p>
-                    <p className="text-xs text-zinc-500 mt-2">
-                        Share this link with the engineer to join the same meeting
-                    </p>
-                </div>
-
-                <p className="text-[10px] text-zinc-600 mt-4 italic font-medium">
-                    Powered by Jitsi Meet - Free &amp; Secure Video Conferencing
-                </p>
-            </div>
-        </div>
-    );
-}
-
-// Add types for Jitsi global
 declare global {
-    interface Window {
-        JitsiMeetExternalAPI: unknown;
+  interface Window {
+    JitsiMeetExternalAPI: any;
+  }
+}
+
+export default function JitsiMeeting({
+  roomId,
+  width = "100%",
+  height = 600,
+  userName = "Guest",
+  displayName,
+  email,
+  onReady,
+  onError,
+}: JitsiMeetingProps) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const apiRef = useRef<any>(null);
+  const [isReady, setIsReady] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [isClient, setIsClient] = useState(false);
+
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
+
+  useEffect(() => {
+    if (!isClient || !containerRef.current || !roomId) {
+      return;
     }
+
+    const initJitsi = async () => {
+      try {
+        // Check if Jitsi API is already loaded
+        if (!window.JitsiMeetExternalAPI) {
+          // Load Jitsi Meet external API
+          const script = document.createElement("script");
+          script.src = "https://meet.jit.si/external_api.js";
+          script.async = true;
+
+          script.onload = () => {
+            createJitsiMeeting();
+          };
+
+          script.onerror = () => {
+            const error = new Error("Failed to load Jitsi Meet API");
+            setError("Failed to load Jitsi Meet. Please try again.");
+            onError?.(error);
+          };
+
+          document.body.appendChild(script);
+        } else {
+          createJitsiMeeting();
+        }
+      } catch (err) {
+        const error = err instanceof Error ? err : new Error("Unknown error");
+        setError("Failed to initialize video call");
+        onError?.(error);
+      }
+    };
+
+    const createJitsiMeeting = () => {
+      if (!window.JitsiMeetExternalAPI || !containerRef.current) {
+        return;
+      }
+
+      try {
+        const options = {
+          roomName: roomId,
+          width: typeof width === "number" ? `${width}px` : width,
+          height: typeof height === "number" ? `${height}px` : height,
+          parentNode: containerRef.current,
+          configOverwrite: {
+            startWithVideoMuted: false,
+            startAudioMuted: false,
+            prejoinPageEnabled: false,
+            enableClosePage: true,
+            disableInviteFunctions: false,
+            toolbarButtons: [
+              "microphone",
+              "camera",
+              "closedcaptions",
+              "desktop",
+              "fullscreen",
+              "fodeviceselection",
+              "hangup",
+              "profile",
+              "chat",
+              "recording",
+              "livestreaming",
+              "etherpad",
+              "sharedvideo",
+              "settings",
+              "raisehand",
+              "videoquality",
+              "filmstrip",
+              "feedback",
+              "stats",
+              "shortcuts",
+              "tileview",
+              "toggle-camera",
+              "videoquality",
+            ],
+          },
+          interfaceConfigOverwrite: {
+            DEFAULT_BACKGROUND: "#1f2937",
+            HIDE_INVITE_MORE_HEADER: true,
+            MOBILE_APP_PROMO: false,
+            SHOW_JITSI_WATERMARK: true,
+            JITSI_WATERMARK_LINK: "https://jitsi.org",
+          },
+          userInfo: {
+            displayName: displayName || userName,
+            email: email,
+          },
+        };
+
+        // Initialize Jitsi Meet API
+        apiRef.current = new window.JitsiMeetExternalAPI(
+          "meet.jit.si",
+          options,
+        );
+
+        // Event listeners
+        apiRef.current.addEventListener("videoConferenceJoined", () => {
+          setIsReady(true);
+          onReady?.();
+        });
+
+        apiRef.current.addEventListener(
+          "videoConferenceFailed",
+          (error: any) => {
+            setError(`Conference failed: ${error?.message || "Unknown error"}`);
+            onError?.(new Error(`Conference failed: ${error?.message}`));
+          },
+        );
+
+        apiRef.current.addEventListener("readyToClose", () => {
+          if (apiRef.current) {
+            apiRef.current.dispose();
+            apiRef.current = null;
+            setIsReady(false);
+          }
+        });
+
+        apiRef.current.addEventListener("errorOccurred", (error: any) => {
+          console.error("Jitsi error:", error);
+          setError(`Error: ${error?.message || "Unknown error occurred"}`);
+        });
+      } catch (err) {
+        const error =
+          err instanceof Error
+            ? err
+            : new Error("Failed to create Jitsi meeting");
+        setError("Failed to create meeting room");
+        onError?.(error);
+      }
+    };
+
+    initJitsi();
+
+    return () => {
+      if (apiRef.current) {
+        try {
+          apiRef.current.dispose();
+        } catch (e) {
+          console.error("Error disposing Jitsi API:", e);
+        }
+        apiRef.current = null;
+      }
+    };
+  }, [
+    isClient,
+    roomId,
+    width,
+    height,
+    userName,
+    displayName,
+    email,
+    onReady,
+    onError,
+  ]);
+
+  if (!isClient) {
+    return null;
+  }
+
+  if (error) {
+    return (
+      <div
+        style={{
+          width,
+          height: typeof height === "number" ? `${height}px` : height,
+        }}
+        className="rounded-lg overflow-hidden border border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-950 flex flex-col items-center justify-center p-8"
+      >
+        <div className="text-center max-w-md">
+          <div className="text-4xl mb-4">⚠️</div>
+          <h3 className="text-lg font-bold text-red-900 dark:text-red-100 mb-2">
+            Failed to Load Video Call
+          </h3>
+          <p className="text-red-700 dark:text-red-200 text-sm mb-4">{error}</p>
+          <button
+            onClick={() => {
+              setError(null);
+              window.location.reload();
+            }}
+            className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition-colors"
+          >
+            Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div
+      ref={containerRef}
+      style={{
+        width: typeof width === "number" ? `${width}px` : width,
+        height: typeof height === "number" ? `${height}px` : height,
+      }}
+      className="rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700 bg-gray-900"
+    />
+  );
 }

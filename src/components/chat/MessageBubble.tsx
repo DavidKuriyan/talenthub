@@ -1,11 +1,21 @@
-export function MessageBubble({ message, currentUserId }: { message: any, currentUserId: string }) {
+export function MessageBubble({
+    message,
+    currentUserId,
+    currentUserRole
+}: {
+    message: any,
+    currentUserId: string,
+    currentUserRole?: 'organization' | 'engineer'
+}) {
     // 1. Strict Derivation (No DB reliance for is_me)
     const isMe = message.sender_id === currentUserId;
 
     // 2. Role derivation
-    const rawRole = message.sender?.role;
-    // Map 'provider' -> Engineer, everything else -> Organization
-    const isSenderOrg = rawRole && rawRole !== "provider";
+    // If it's me, use currentUserRole
+    // If it's them, infer opposite role (org <-> engineer)
+    const isSenderOrg = isMe
+        ? currentUserRole === 'organization'
+        : currentUserRole !== 'organization';
 
     // Base styles
     const base = "max-w-[85%] sm:max-w-[75%] px-5 py-3 rounded-2xl text-sm break-words shadow-lg transition-all animate-in fade-in slide-in-from-bottom-2 duration-300";
@@ -38,11 +48,9 @@ export function MessageBubble({ message, currentUserId }: { message: any, curren
         }
     }
 
-    // Name display logic
-    // We expect message.sender.full_name to be populated via join
-    const senderName = message.sender?.full_name || "Unknown";
 
     return (
+
         <div className={wrapperClass}>
             <div className={`flex flex-col ${isMe ? 'items-end' : 'items-start'}`}>
                 {/* Optional: Show name if not me (and maybe only if changed from prev, handled by parent usually, but here we just render bubble) 

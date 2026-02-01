@@ -133,13 +133,7 @@ export async function fetchMessageHistory(
     const userId = session?.user?.id;
 
     let query = (supabase.from("messages") as any)
-      .select(`
-        *,
-        sender:sender_id(
-          full_name,
-          role
-        )
-      `)
+      .select('*')
       .eq("match_id", matchId)
       .order("created_at", { ascending: true })
       .range(offset, offset + limit - 1);
@@ -197,13 +191,7 @@ export async function sendMessage(
   const { data, error } = await (supabase
     .from("messages") as any)
     .insert(payload)
-    .select(`
-      *,
-      sender:sender_id(
-        full_name,
-        role
-      )
-    `)
+    .select()
     .single();
 
   if (error) {
