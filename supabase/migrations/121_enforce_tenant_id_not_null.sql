@@ -26,14 +26,14 @@ ALTER COLUMN tenant_id SET NOT NULL;
 -- 3. Verify constraint is applied
 DO $$
 DECLARE
-    is_nullable TEXT;
+    check_nullable TEXT;
 BEGIN
-    SELECT is_nullable INTO is_nullable
+    SELECT is_nullable INTO check_nullable
     FROM information_schema.columns 
     WHERE table_name = 'messages' 
     AND column_name = 'tenant_id';
     
-    IF is_nullable = 'YES' THEN
+    IF check_nullable = 'YES' THEN
         RAISE EXCEPTION 'tenant_id is still nullable!';
     END IF;
     

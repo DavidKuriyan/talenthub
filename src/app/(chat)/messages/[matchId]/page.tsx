@@ -106,6 +106,18 @@ export default function ChatPage() {
     }, [matchId, router, filterDeleted])
 
 
+    // Scroll to bottom helper
+    const scrollToBottom = useCallback(() => {
+        // Use a small timeout to ensure DOM is fully painted, especially for images/layouts
+        // larger timeout 100ms -> safety for slow renders
+        setTimeout(() => scrollRef.current?.scrollIntoView({ behavior: 'smooth' }), 100)
+    }, [])
+
+    // Auto-scroll when messages change
+    useEffect(() => {
+        scrollToBottom()
+    }, [messages, scrollToBottom])
+
     // Realtime event handler (memoized to prevent re-subscriptions)
     const handleRealtimeEvent = useCallback(async (event: RealtimeMessageEvent) => {
         console.log('[ChatPage] 🔄 Realtime event:', event.type);
@@ -128,8 +140,7 @@ export default function ChatPage() {
                     sender_role_display: senderProfile.role
                 }];
             });
-
-            setTimeout(() => scrollRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
+            // Scroll handled by effect
         }
         else if (event.type === 'UPDATE' && event.message) {
             // Update existing message (e.g., read status, soft delete)
@@ -290,8 +301,12 @@ export default function ChatPage() {
                                         e.currentTarget.addEventListener('touchmove', clear, { once: true })
                                     }}
                                 >
-                                    {/* Strict usage of MessageBubble - logic delegated to component */}
-                                    <MessageBubble message={msg} currentUserId={user.id} />
+                                    {/* Pass currentUserRole for correct color logic */}
+                                    <MessageBubble
+                                        message={msg}
+                                        currentUserId={user.id}
+                                        currentUserRole={user.app_metadata?.role || user.user_metadata?.role}
+                                    />
                                 </div>
                             );
                         })

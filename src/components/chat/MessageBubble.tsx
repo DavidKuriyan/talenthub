@@ -5,17 +5,17 @@ export function MessageBubble({
 }: {
     message: any,
     currentUserId: string,
-    currentUserRole?: 'organization' | 'engineer'
+    currentUserRole: 'organization' | 'engineer'  // REQUIRED for correct colors
 }) {
     // 1. Strict Derivation (No DB reliance for is_me)
     const isMe = message.sender_id === currentUserId;
 
-    // 2. Role derivation
+    // 2. Role derivation (FIXED)
     // If it's me, use currentUserRole
-    // If it's them, infer opposite role (org <-> engineer)
+    // If it's them, use ACTUAL sender role from message data
     const isSenderOrg = isMe
         ? currentUserRole === 'organization'
-        : currentUserRole !== 'organization';
+        : message.sender_role_display === 'organization';  // Use actual sender data
 
     // Base styles
     const base = "max-w-[85%] sm:max-w-[75%] px-5 py-3 rounded-2xl text-sm break-words shadow-lg transition-all animate-in fade-in slide-in-from-bottom-2 duration-300";
@@ -50,18 +50,19 @@ export function MessageBubble({
 
 
     return (
-
         <div className={wrapperClass}>
             <div className={`flex flex-col ${isMe ? 'items-end' : 'items-start'}`}>
-                {/* Optional: Show name if not me (and maybe only if changed from prev, handled by parent usually, but here we just render bubble) 
-                    For now, we simplify to just bubble as per previous design, but user complained about UUIDs.
-                    The parent manages the flow, but if we wanted to show names, we'd do it here or outside.
-                    Bubbles usually don't show name *inside* the bubble for chat apps, usually above.
-                    Let's stick to the bubble content for now.
-                */}
+                {/* Show sender name for "Them" messages (per UI GUIDE: "No UUIDs, names only") */}
+                {!isMe && (
+                    <span className="text-xs font-semibold text-zinc-400 mb-1 px-2">
+                        {message.sender_name || 'Unknown'}
+                    </span>
+                )}
+
                 <div className={`${base} ${bubbleStyles}`}>
                     <p className="leading-relaxed whitespace-pre-wrap">{message.content}</p>
-                    <div className={`mt-1 flex items-center gap-2 ${isMe ? 'justify-end' : 'justify-start'}`}>
+                    {/* FIXED: Timestamps ALWAYS right-aligned per MESSAGE UI GUIDE */}
+                    <div className="mt-1 flex items-center gap-2 justify-end">
                         <span className={`text-[10px] font-semibold tracking-wide ${isMe ? 'text-white/60' : 'text-zinc-400'}`}>
                             {message.created_at ? new Date(message.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '...'}
                         </span>
