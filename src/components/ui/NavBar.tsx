@@ -57,12 +57,18 @@ export default function NavBar() {
             }
 
             // Call Server Action
+            // 1. Client-side cleanup
+            await supabase.auth.signOut();
+
+            // 2. Server-side cleanup (cookie removal)
             await logoutAction();
 
+            // 3. Force hard redirect to login to clear all memory/state
+            window.location.href = '/login/';
         } catch (error: any) {
             console.error('[NavBar] Logout exception:', error);
             // Fallback redirect if server action fails somehow (rare)
-            router.replace('/login/');
+            window.location.href = '/login/';
         } finally {
             setLoading(false);
         }
@@ -77,17 +83,15 @@ export default function NavBar() {
                     <span className="text-sm text-zinc-500 hidden md:inline">
                         {user.email}
                     </span>
-                    <button
-                        type="button"
-                        onClick={() => {
-                            console.log('[NavBar] 🖱️ Button clicked!');
-                            handleLogout();
-                        }}
-                        disabled={loading}
-                        className="px-4 py-2 text-sm font-medium rounded-lg bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors cursor-pointer"
-                    >
-                        {loading ? "..." : "Logout"}
-                    </button>
+                    <form action={logoutAction}>
+                        <button
+                            type="submit"
+                            disabled={loading}
+                            className="px-4 py-2 text-sm font-medium rounded-lg bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors cursor-pointer"
+                        >
+                            {loading ? "..." : "Logout"}
+                        </button>
+                    </form>
                 </>
             ) : (
                 // Only show Login button if NOT on an authenticated page

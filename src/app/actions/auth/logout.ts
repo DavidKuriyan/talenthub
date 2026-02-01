@@ -8,10 +8,16 @@ import { Database } from "@/lib/types";
 export async function logoutAction() {
     const cookieStore = await cookies();
 
+    // 1. Initialize Supabase Server Client to perform standard signOut
     const supabase = createServerClient<Database>(
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
         process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
         {
+            auth: {
+                storageKey: 'talenthub-session',
+                persistSession: true,
+                detectSessionInUrl: true,
+            },
             cookies: {
                 get(name: string) {
                     return cookieStore.get(name)?.value;
@@ -20,31 +26,34 @@ export async function logoutAction() {
                     try {
                         cookieStore.set({ name, value, ...options });
                     } catch (error) {
-                        // The `set` method was called from a Server Component.
-                        // This can be ignored if you have middleware refreshing
-                        // user sessions.
+                        // Ignored
                     }
                 },
                 remove(name: string, options: CookieOptions) {
                     try {
                         cookieStore.set({ name, value: "", ...options });
                     } catch (error) {
-                        // The `delete` method was called from a Server Component.
-                        // This can be ignored if you have middleware refreshing
-                        // user sessions.
+                        // Ignored
                     }
                 },
             },
         }
     );
 
-    // Sign out from Supabase (invalidates session on server)
-    const { error } = await supabase.auth.signOut();
+    // 2. Perform Supabase SignOut
+    await supabase.auth.signOut();
 
-    if (error) {
-        console.error("Logout error:", error);
-    }
+    // 3. CRITICAL: Explicitly delete cookies at the source
+    // This removes the custom session cookie
+    cookieStore.delete("talenthub-session");
 
-    // Force redirect to login
-    redirect("/login/");
+    // Also remove standard Supabase tokens if they exist (just in case)
+    cookieStore.delete("sb-access-token");
+    cookieStore.delete("sb-refresh-token");
+
+    // Remove any generic supabase auth token
+    cookieStore.delete("supabase.auth.token");
+
+    // 4. Force redirect to login
+    redirect("/login");
 }

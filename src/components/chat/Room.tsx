@@ -22,6 +22,7 @@ export default function ChatRoom({
     senderId,
     userName = "chat",
     displayName,
+    tenantId,
 }: ChatRoomProps) {
     const [userRole, setUserRole] = useState<'organization' | 'engineer'>('organization');
 
@@ -45,6 +46,7 @@ export default function ChatRoom({
                 currentUserName={displayName || userName}
                 otherUserName="Participant"
                 currentUserRole={userRole}
+                tenantId={tenantId}
             />
         </div>
     );
