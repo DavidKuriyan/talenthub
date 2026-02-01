@@ -25,7 +25,8 @@ function InterviewsContent() {
     const [interviews, setInterviews] = useState<Interview[]>([]);
     const [loading, setLoading] = useState(true);
     const [selectedInterview, setSelectedInterview] = useState<Interview | null>(null);
-    const [user, setUser] = useState<any>(null); // Keeping user as any due to complex Supabase User type
+    const [user, setUser] = useState<any>(null);
+    const [tenantId, setTenantId] = useState<string | null>(null);
     const router = useRouter();
     const searchParams = useSearchParams();
     const filterMatchId = searchParams.get("matchId");
@@ -45,6 +46,7 @@ function InterviewsContent() {
             setUser(session.user);
 
             const tenantId = session.user.user_metadata?.tenant_id || session.user.app_metadata?.tenant_id;
+            setTenantId(tenantId);
 
             // Removed invalid nested joins to fix PGRST200
             let query = supabase
@@ -91,7 +93,11 @@ function InterviewsContent() {
 
         try {
             const tenantId = user.user_metadata?.tenant_id || user.app_metadata?.tenant_id;
-            const roomId = `talenthub - ${filterMatchId} - ${Math.random().toString(36).substring(7)}`;
+            if (!tenantId) {
+                console.error("No tenantId found");
+                return;
+            }
+            const roomId = `talenthub-${filterMatchId}-${Math.random().toString(36).substring(7)}`;
 
             const { data, error } = await supabase
                 .from("interviews")
@@ -205,6 +211,7 @@ function InterviewsContent() {
                                     <VideoCallContainer
                                         roomName={selectedInterview.jitsi_room_id}
                                         userName={user?.user_metadata?.full_name || "Recruiter"}
+                                        tenantId={tenantId || ""}
                                         height="100%"
                                     />
                                 </div>

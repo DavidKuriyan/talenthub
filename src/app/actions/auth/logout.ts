@@ -54,6 +54,6 @@ export async function logoutAction() {
     // Remove any generic supabase auth token
     cookieStore.delete("supabase.auth.token");
 
-    // 4. Force redirect to login
-    redirect("/login");
+    // 4. Force redirect to login with logout flag
+    redirect("/login?logout=true");
 }

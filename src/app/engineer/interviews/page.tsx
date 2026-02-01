@@ -193,6 +193,7 @@ export default async function EngineerInterviewsPage() {
                               session.user.user_metadata?.full_name ||
                               "Engineer"
                             }
+                            tenantId={tenantId}
                             height="100%"
                           />
                         </div>

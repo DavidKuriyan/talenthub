@@ -2,6 +2,7 @@ import { createClient } from "@/lib/server";
 import { redirect } from "next/navigation";
 import ChatWindow from "@/components/chat/ChatWindow";
 import JitsiMeeting from "@/components/video/JitsiMeeting";
+import { generateInterviewRoomId } from "@/lib/jitsi";
 import Link from "next/link";
 
 interface PageProps {
@@ -20,6 +21,11 @@ export default async function MatchDetailsPage(props: PageProps) {
     }
 
     const userId = session.user.id;
+    const tenantId = session.user.user_metadata?.tenant_id || session.user.app_metadata?.tenant_id;
+
+    if (!tenantId) {
+        return <div className="p-8 text-red-500">Error: User tenant not found</div>;
+    }
 
     // Fetch Match with related data
     const { data: matchData, error } = await supabase
@@ -89,7 +95,7 @@ export default async function MatchDetailsPage(props: PageProps) {
                             </div>
                             <div className="aspect-video bg-black">
                                 <JitsiMeeting
-                                    roomId={`talenthub-${match.id}`}
+                                    roomId={generateInterviewRoomId(match.id, tenantId)}
                                     userName="Client"
                                     height="100%"
                                 />

@@ -68,9 +68,19 @@ export async function middleware(request: NextRequest) {
         return NextResponse.redirect(url)
     }
 
-    // 🔁 If logged in → block login page (User's specific fix request)
+    // Allow logged-in users to access logout-triggered login page
+    // Check for explicit logout flag to prevent redirect loop
     if (session && isAuthPage) {
-        // Context-aware dashboard redirection after login
+        // EXCEPTION: If coming from logout, allow staying on login page
+        const referer = request.headers.get('referer') || '';
+        const isFromLogout = referer.includes('/logout') || url.searchParams.get('logout') === 'true';
+
+        if (isFromLogout) {
+            // User just logged out, allow them to see login page
+            return NextResponse.next();
+        }
+
+        // Otherwise, redirect to appropriate dashboard
         const role = session.user.app_metadata.role || session.user.user_metadata?.role
         const tenantId = session.user.app_metadata.tenant_id || session.user.user_metadata?.tenant_id;
 

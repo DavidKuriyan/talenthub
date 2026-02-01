@@ -1,10 +1,12 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { generateInterviewRoomId } from "@/lib/jitsi";
 
 interface VideoCallContainerProps {
-  roomName: string;
+  roomName: string;  // matchId
   userName: string;
+  tenantId: string;  // Required for secure room naming
   onReadyToClose?: () => void;
   height?: string;
 }
@@ -17,6 +19,7 @@ interface VideoCallContainerProps {
 export default function VideoCallContainer({
   roomName,
   userName,
+  tenantId,
   onReadyToClose,
   height = "100%",
 }: VideoCallContainerProps) {
@@ -88,8 +91,11 @@ export default function VideoCallContainer({
 
         const JitsiMeetExternalAPI = (window as any).JitsiMeetExternalAPI;
 
+        // Generate secure, tenant-isolated room name
+        const secureRoomName = generateInterviewRoomId(roomName, tenantId);
+
         const options = {
-          roomName: roomName,
+          roomName: secureRoomName,
           width: "100%",
           height: height === "100%" ? "100%" : `${height}px`,
           parentNode: containerRef.current,
