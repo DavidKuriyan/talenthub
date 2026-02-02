@@ -54,9 +54,7 @@ export function subscribeToMessages(
   const { onMessageUpdate, onMessageDelete, onError, currentUserId, tenantId } = options as any;
   // (We'll update the type def in a moment or cast for now to avoid TS error if we don't want to change signature globally yet)
 
-  const filterString = tenantId
-    ? `match_id=eq.${matchId},tenant_id=eq.${tenantId}`
-    : `match_id=eq.${matchId}`;
+  const filterString = `match_id=eq.${matchId}`;
 
   if (!tenantId) {
     console.warn("[Realtime] Warning: No tenantId provided for subscription. Tenant isolation relies solely on RLS.");
@@ -183,7 +181,7 @@ export async function sendMessage(
   const payload: any = {
     match_id: matchId,
     sender_id: senderId,
-    // sender_role removed: normalized to profiles table
+    sender_role: senderRole,
     content: content.trim(),
     is_system_message: isSystemMessage,
     tenant_id: tenantId  // Now guaranteed to be present

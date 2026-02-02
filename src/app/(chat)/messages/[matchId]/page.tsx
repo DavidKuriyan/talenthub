@@ -96,7 +96,8 @@ export default function ChatPage() {
                     ...m,
                     // is_me: calculated in component
                     sender_name: profileMap.get(m.sender_id)?.full_name || "Unknown User",
-                    sender_role_display: profileMap.get(m.sender_id)?.role || "user"
+                    // Use stored role for consistency with UI Guide
+                    sender_role_display: m.sender_role || profileMap.get(m.sender_id)?.role || "user"
                 })))
             }
             setLoading(false)
@@ -137,7 +138,8 @@ export default function ChatPage() {
                     ...newMsg,
                     // is_me: calculated in component
                     sender_name: senderProfile.full_name,
-                    sender_role_display: senderProfile.role
+                    // Integrate with Realtime message: Use the role stored in the message if available
+                    sender_role_display: newMsg.sender_role || senderProfile.role
                 }];
             });
             // Scroll handled by effect

@@ -107,7 +107,10 @@ export default function ChatWindow({
                         nextMessages = nextMessages.filter(m => m.id !== tempMatch.id);
                     }
 
-                    return [...nextMessages, newMsg as Message];
+                    return [...nextMessages, {
+                        ...newMsg,
+                        sender_role_display: (newMsg as any).sender_role || (newMsg as any).sender_role_display
+                    } as Message];
                 });
                 setTimeout(scrollToBottom, 100);
 

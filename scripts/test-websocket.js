@@ -41,8 +41,8 @@ async function testWebSocket() {
     console.log(`   Match ID: ${matchId || 'ANY'}`);
     console.log(`   Tenant ID: ${tenantId || 'ANY'}`);
 
-    const filterString = matchId && tenantId
-        ? `match_id=eq.${matchId},tenant_id=eq.${tenantId}`
+    const filterString = matchId
+        ? `match_id=eq.${matchId}`
         : 'id=neq.00000000-0000-0000-0000-000000000000'; // Match all
 
     const channel = supabase

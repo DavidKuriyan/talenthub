@@ -231,14 +231,17 @@ export async function PATCH(req: NextRequest) {
       .from("profiles")
       .select("tenant_id")
       .eq("id", session.user.id)
-      .single();
+      .single() as { data: { tenant_id: string } | null; error: any };
 
-    if (!profile?.tenant_id) {
+    if (!profile || !profile.tenant_id) {
       return NextResponse.json(
         { error: "User tenant not found" },
         { status: 403 },
       );
     }
+
+    // Explicitly cast to string to satisfy TS if needed, though supabase types should handle it
+    const tenantId = profile.tenant_id as string;
 
     const body = await req.json();
     const { id, status, notes } = body;
@@ -255,7 +258,7 @@ export async function PATCH(req: NextRequest) {
       .from("interviews")
       .select("id, tenant_id")
       .eq("id", id)
-      .eq("tenant_id", profile.tenant_id)
+      .eq("tenant_id", tenantId)
       .single();
 
     if (!interview) {
@@ -273,7 +276,7 @@ export async function PATCH(req: NextRequest) {
     const { data, error } = await (supabase.from("interviews") as any)
       .update(updateData)
       .eq("id", id)
-      .eq("tenant_id", profile.tenant_id)
+      .eq("tenant_id", tenantId)
       .select()
       .single();
 

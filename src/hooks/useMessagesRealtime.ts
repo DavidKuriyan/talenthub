@@ -35,8 +35,8 @@ export function useMessagesRealtime({
         // we might need to construct the filter carefully.
         // The provider accepts `filter` string.
 
-        // Filter by both match_id AND tenant_id for proper isolation
-        const filterString = `match_id=eq.${matchId},tenant_id=eq.${tenantId}`;
+        // Filter by match_id (sufficient as match_id is unique and RLS enforces access)
+        const filterString = `match_id=eq.${matchId}`;
 
         const channelKey = subscribe({
             table: 'messages',

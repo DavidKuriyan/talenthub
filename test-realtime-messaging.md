@@ -273,6 +273,12 @@ node scripts/test-realtime.js
 ```bash
 # Check Supabase logs in Dashboard → Logs → Realtime
 # Verify table is in publication
+
+### Issue: Subscription fails or no messages appear
+**Diagnosis**:
+- Check if client is sending invalid filter string (e.g. `col1=eq.val,col2=eq.val`). Supabase Realtime assumes single column filter.
+**Fix**:
+- Ensure `useMessagesRealtime` uses `match_id=eq.ID` only. Tenant isolation is handled by RLS.
 ```
 
 ### Issue: Wrong message alignment
