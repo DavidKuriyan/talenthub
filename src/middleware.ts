@@ -117,7 +117,7 @@ export async function middleware(request: NextRequest) {
             url.pathname = '/organization/dashboard'
         } else {
             // Default based on role if generic /login used
-            if (role === 'provider') {
+            if (['provider', 'subscriber', 'engineer'].includes(role || '')) {
                 url.pathname = '/engineer/profile'
             } else {
                 url.pathname = '/organization/dashboard'
@@ -144,7 +144,7 @@ export async function middleware(request: NextRequest) {
         // 2. Role-Based Route Protection (Strict)
 
         // Block Providers (Engineers) from Organization Routes
-        if (url.pathname.startsWith('/organization') && role === 'provider') {
+        if (url.pathname.startsWith('/organization') && ['provider', 'subscriber', 'engineer'].includes(role || '')) {
             const redirectUrl = request.nextUrl.clone();
             redirectUrl.pathname = '/engineer/profile';
             return NextResponse.redirect(redirectUrl);
@@ -159,8 +159,16 @@ export async function middleware(request: NextRequest) {
 
         // Admin Route Protection
         if (url.pathname.startsWith('/admin') && url.pathname !== '/admin/login') {
-            if (role !== 'admin' && role !== 'super_admin') {
-                url.pathname = '/organization/dashboard';
+            // STRICT: Only super_admin can access the global admin dashboard
+            if (role !== 'super_admin') {
+                // Redirect unauthorized users to their appropriate dashboard or login
+                if (role === 'provider') {
+                    url.pathname = '/engineer/profile';
+                } else if (role === 'admin' || role === 'recruiter' || role === 'organization') {
+                    url.pathname = '/organization/dashboard';
+                } else {
+                    url.pathname = '/login';
+                }
                 return NextResponse.redirect(url);
             }
         }

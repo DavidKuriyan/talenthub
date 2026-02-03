@@ -78,7 +78,9 @@ export default async function EngineerJobsPage() {
         };
     };
 
-    const typedMatches = (matches || []) as any[] as MatchWithRequirement[];
+    const typedMatches = ((matches || []) as any[] as MatchWithRequirement[])
+        .filter(m => m.requirements != null); // Filter out matches with deleted/null requirements
+
 
     const getStatusBadge = (status: string) => {
         switch (status) {

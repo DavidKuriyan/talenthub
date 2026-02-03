@@ -94,7 +94,14 @@ export default function MessagesPage() {
                 };
             });
 
-            setConversations(formattedConversations);
+            // Deduplicate conversations (fixes "Same 2 Engineer" type issues in Engineer view)
+            const uniqueConversations = formattedConversations.filter((conv, index, self) =>
+                index === self.findIndex((t) => (
+                    t.name === conv.name && t.company === conv.company
+                ))
+            );
+
+            setConversations(uniqueConversations);
             setLoading(false);
         } catch (error: any) {
             console.error("Error loading conversations:", error?.message || error);

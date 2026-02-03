@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from "@/lib/supabase";
 import { fetchMessageHistory, sendMessage, subscribeToMessages, deleteMessage } from '@/lib/realtime';
-import { MessageBubble } from './MessageBubble';
+import { MessageBubbleFixed as MessageBubble } from './MessageBubbleFixed';
 
 interface Message {
     id: string;

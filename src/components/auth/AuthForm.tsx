@@ -80,22 +80,7 @@ export default function AuthForm({ mode, adminMode = false, portalType = "defaul
                 });
                 if (signUpError) throw signUpError;
 
-                // Auto-create row in public.users table
-                if (signUpData.user) {
-                    const { error: insertError } = await supabase
-                        .from("users")
-                        .insert({
-                            id: signUpData.user.id,
-                            tenant_id: tenantId,
-                            email: email,
-                            role: role
-                        } as any); // Type assertion - Supabase types not generated
-
-                    if (insertError) {
-                        console.error("Failed to create user record:", insertError);
-                        // Don't fail registration, just log the error
-                    }
-                }
+                // Note: User row in public.users is automatically created by database trigger (on_auth_user_created)
 
                 await logAuthEvent("registration", { email, tenant_id: tenantId, role });
                 router.push("/organization/dashboard");
@@ -163,8 +148,8 @@ export default function AuthForm({ mode, adminMode = false, portalType = "defaul
                 </div>
             )}
 
-            {/* Tenant Selection for Registration */}
-            {mode === "register" && tenants.length > 1 && (
+            {/* Tenant Selection for Registration - NOT for Engineers */}
+            {mode === "register" && tenants.length > 1 && portalType !== "engineer" && (
                 <div className="flex flex-col gap-1">
                     <label className="text-xs font-bold text-zinc-400 uppercase tracking-widest px-1">
                         Select Organization

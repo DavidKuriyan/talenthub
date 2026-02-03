@@ -5,7 +5,7 @@ import { supabase } from "@/lib/supabase"
 import { sendMessage, deleteMessage } from "@/lib/realtime"
 // import { useRealtime } from "@/providers/RealtimeProvider"
 import { useMessagesRealtime, type RealtimeMessageEvent } from "@/hooks/useMessagesRealtime"
-import { MessageBubble } from "@/components/chat/MessageBubble"
+import { MessageBubbleFixed as MessageBubble } from "@/components/chat/MessageBubbleFixed"
 import { useParams, useRouter } from "next/navigation"
 import Link from "next/link"
 
@@ -14,6 +14,12 @@ import Link from "next/link"
  * @aiNote Premium Chat Center with Long-Press Delete and Schema Robustness.
  * Handles PGRST204 by omitting sender_role.
  */
+const normalizeRole = (role: string | undefined | null) => {
+    return ['organization', 'admin', 'recruiter', 'super_admin'].includes(role || '')
+        ? 'organization'
+        : 'engineer';
+};
+
 export default function ChatPage() {
     const params = useParams()
     const matchId = params.matchId as string
@@ -96,8 +102,9 @@ export default function ChatPage() {
                     ...m,
                     // is_me: calculated in component
                     sender_name: profileMap.get(m.sender_id)?.full_name || "Unknown User",
-                    // Use stored role for consistency with UI Guide
-                    sender_role_display: m.sender_role || profileMap.get(m.sender_id)?.role || "user"
+                    // Use stored role for consistency with UI Guide, or normalize profile role
+                    // Use stored role for consistency with UI Guide, or normalize profile role
+                    sender_role_display: m.sender_role || normalizeRole(profileMap.get(m.sender_id)?.role)
                 })))
             }
             setLoading(false)
@@ -139,7 +146,7 @@ export default function ChatPage() {
                     // is_me: calculated in component
                     sender_name: senderProfile.full_name,
                     // Integrate with Realtime message: Use the role stored in the message if available
-                    sender_role_display: newMsg.sender_role || senderProfile.role
+                    sender_role_display: newMsg.sender_role || normalizeRole(senderProfile.role)
                 }];
             });
             // Scroll handled by effect
@@ -192,8 +199,12 @@ export default function ChatPage() {
         setNewMessage("")
 
         try {
+            // Normalize role to match DB enum ('organization' | 'engineer')
+            const rawRole = user.app_metadata?.role || user.user_metadata?.role || 'engineer';
+            const senderRole = normalizeRole(rawRole);
+
             // Use robust sendMessage which handles retries and tenant_id
-            await sendMessage(matchId, user.id, content, user.app_metadata?.role || user.user_metadata?.role || 'user');
+            await sendMessage(matchId, user.id, content, senderRole);
         } catch (error: any) {
             console.error("[ChatPage] Send failed:", error?.message || error)
             setNewMessage(content) // Restore on failure
@@ -307,7 +318,7 @@ export default function ChatPage() {
                                     <MessageBubble
                                         message={msg}
                                         currentUserId={user.id}
-                                        currentUserRole={user.app_metadata?.role || user.user_metadata?.role}
+                                        currentUserRole={normalizeRole(user.app_metadata?.role || user.user_metadata?.role)}
                                     />
                                 </div>
                             );

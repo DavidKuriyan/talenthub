@@ -13,7 +13,7 @@ export default function RegisterPage() {
                         <span className="font-bold text-2xl text-zinc-900 dark:text-zinc-50 tracking-tighter">TalentHub</span>
                     </div>
                 </div>
-                <AuthForm mode="register" />
+                <AuthForm mode="register" portalType="engineer" />
             </div>
         </div>
     );

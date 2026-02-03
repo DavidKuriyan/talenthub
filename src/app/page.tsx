@@ -26,7 +26,7 @@ export default async function Home() {
   // If logged in, redirect to appropriate dashboard
   if (session) {
     const role = session.user.app_metadata?.role || session.user.user_metadata?.role;
-    if (role === 'provider') {
+    if (['provider', 'subscriber', 'engineer'].includes(role || '')) {
       redirect("/engineer/profile");
     } else {
       redirect("/organization/dashboard");

@@ -122,7 +122,7 @@ export default function EngineerLoginPage() {
                     </p>
                     <div className="flex flex-col gap-2">
                         <Link
-                            href="/register"
+                            href="/engineer/register"
                             className="text-emerald-300 text-sm hover:text-white transition-colors"
                         >
                             Register as Provider →

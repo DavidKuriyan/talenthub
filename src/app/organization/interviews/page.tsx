@@ -97,24 +97,26 @@ function InterviewsContent() {
                 console.error("No tenantId found");
                 return;
             }
-            const roomId = `talenthub-${filterMatchId}-${Math.random().toString(36).substring(7)}`;
-
-            const { data, error } = await supabase
-                .from("interviews")
-                .insert({
-                    tenant_id: tenantId,
+            const response = await fetch("/api/interviews", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
                     match_id: filterMatchId,
-                    scheduled_at: new Date(Date.now() + 3600000).toISOString(), // 1 hour from now
-                    jitsi_room_id: roomId,
-                    status: 'scheduled'
-                } as any)
-                .select()
-                .single();
+                    scheduled_at: new Date(Date.now() + 3600000).toISOString(),
+                    notes: "Scheduled via Instant Interview"
+                }),
+            });
 
-            if (error) throw error;
+            const data = await response.json();
 
-            setInterviews(prev => [data as unknown as Interview, ...prev]);
-            setSelectedInterview(data as unknown as Interview);
+            if (!response.ok) {
+                throw new Error(data.error || "Failed to schedule interview");
+            }
+
+            setInterviews(prev => [data, ...prev]);
+            setSelectedInterview(data);
         } catch (error) {
             console.error("Error creating interview:", error);
         }

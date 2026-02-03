@@ -121,7 +121,7 @@ function MatchingContent() {
     }, [requirementId, tenantId, lastUpdate]);
 
     const handleCreateMatch = async (engineerId: string, score: number) => {
-        if (!requirementId) return;
+        if (!requirementId || !tenantId) return;
         try {
             const { error } = await supabase
                 .from("matches")
@@ -129,7 +129,8 @@ function MatchingContent() {
                     requirement_id: requirementId,
                     profile_id: engineerId,
                     score: score,
-                    status: 'pending'
+                    status: 'pending',
+                    tenant_id: tenantId  // Required for RLS policy
                 } as any);
             if (error) throw error;
             fetchData(tenantId!);
@@ -139,6 +140,7 @@ function MatchingContent() {
             alert("Failed to create match: " + (error?.message || "Unknown error"));
         }
     };
+
 
     const handleRecruit = async (matchId: string, engineerId: string) => {
         if (!confirm("Recruit this engineer as a full-time employee?")) return;

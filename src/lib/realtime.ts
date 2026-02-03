@@ -181,7 +181,7 @@ export async function sendMessage(
   const payload: any = {
     match_id: matchId,
     sender_id: senderId,
-    sender_role: senderRole,
+    // sender_role: senderRole, // REMOVED: Column does not exist in schema cache. UI derives role from profile.
     content: content.trim(),
     is_system_message: isSystemMessage,
     tenant_id: tenantId  // Now guaranteed to be present
@@ -194,7 +194,8 @@ export async function sendMessage(
     .single();
 
   if (error) {
-    console.error("[Realtime] Error sending message:", error);
+    console.error("[Realtime] Error sending message:", JSON.stringify(error, null, 2));
+    console.error("[Realtime] Payload failed:", payload);
     throw error;
   }
 

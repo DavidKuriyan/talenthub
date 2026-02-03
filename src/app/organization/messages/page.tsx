@@ -80,7 +80,14 @@ export default function OrganizationMessagesPage() {
                 lastMessage: "Click to start chatting"
             }));
 
-            setConversations(formattedConversations);
+            // Deduplicate conversations (fixes "Same 2 Engineer" issue)
+            const uniqueConversations = formattedConversations.filter((conv, index, self) =>
+                index === self.findIndex((t) => (
+                    t.title === conv.title && t.engineerName === conv.engineerName
+                ))
+            );
+
+            setConversations(uniqueConversations);
             setLoading(false);
         } catch (error: any) {
             console.error("Error loading conversations:", error?.message || error);

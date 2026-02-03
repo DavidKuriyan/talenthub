@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { generateInterviewRoomId } from "@/lib/jitsi";
+
 
 interface VideoCallContainerProps {
   roomName: string;  // matchId
@@ -91,8 +91,8 @@ export default function VideoCallContainer({
 
         const JitsiMeetExternalAPI = (window as any).JitsiMeetExternalAPI;
 
-        // Generate secure, tenant-isolated room name
-        const secureRoomName = generateInterviewRoomId(roomName, tenantId);
+        // Use the roomName passed from props (which should be the secure jitsi_room_id from DB)
+        const secureRoomName = roomName;
 
         const options = {
           roomName: secureRoomName,
