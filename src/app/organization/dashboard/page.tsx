@@ -148,10 +148,11 @@ export default function OrganizationDashboard() {
                             <h2 className="text-2xl font-bold mb-8">Strategic Overview</h2>
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 <QuickAction icon="💬" title="Message Center" desc="Chat with engineers" href="/organization/messages" />
-                                <QuickAction icon="📹" title="Video Portal" desc="Join scheduled interviews" href="/organization/interviews" />
+                                <QuickAction icon="📹" title="Start Interview" desc="Begin a video call now" href="/organization/interview" />
+                                <QuickAction icon="📅" title="Scheduled Interviews" desc="View upcoming calls" href="/organization/interviews" />
                                 <QuickAction icon="🏢" title="Company Profile" desc="Update brand presence" href="/organization/settings" />
-                                <QuickAction icon="💰" title="Invoice Center" desc="Manage payments & billing" href="/organization/invoices" />
                             </div>
+
                         </section>
 
                         <section className="p-8 rounded-[2.5rem] bg-gradient-to-r from-indigo-500/5 to-purple-500/5 border border-indigo-500/10">
